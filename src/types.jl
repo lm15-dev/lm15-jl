@@ -111,6 +111,55 @@ function ToolResultMessage(results::Vector{Pair{String,String}})
     Message(role="tool", parts=parts)
 end
 
+# ── Canonical JSON serialization ───────────────────────────────────
+
+function part_from_dict(d::Dict)::Part
+    t = get(d, "type", "text")
+    if t == "text"
+        return TextPart(get(d, "text", ""))
+    elseif t == "thinking"
+        return ThinkingPart(get(d, "text", ""); redacted=get(d, "redacted", nothing), summary=get(d, "summary", nothing))
+    elseif t == "refusal"
+        return RefusalPart(get(d, "text", ""))
+    elseif t in ("image", "audio", "video", "document")
+        src = get(d, "source", Dict{String,Any}())
+        source = DataSource(
+            type=get(src, "type", "url"),
+            url=get(src, "url", nothing),
+            data=get(src, "data", nothing),
+            media_type=get(src, "media_type", nothing),
+            file_id=get(src, "file_id", nothing),
+            detail=get(src, "detail", nothing),
+        )
+        return Part(type=t, source=source)
+    elseif t == "tool_call"
+        args = get(d, "arguments", Dict{String,Any}())
+        return ToolCallPart(get(d, "id", ""), get(d, "name", ""), args)
+    elseif t == "tool_result"
+        raw = get(d, "content", "")
+        if raw isa String
+            content = isempty(raw) ? Part[] : [TextPart(raw)]
+        elseif raw isa Vector
+            content = [c isa Dict ? part_from_dict(c) : TextPart(string(c)) for c in raw]
+        else
+            content = Part[]
+        end
+        return ToolResultPart(get(d, "id", ""), content; name=get(d, "name", nothing))
+    end
+    TextPart(get(d, "text", ""))
+end
+
+function message_from_dict(d::Dict)::Message
+    role = get(d, "role", "user")
+    parts_raw = get(d, "parts", Any[])
+    parts = [p isa Dict ? part_from_dict(p) : TextPart(string(p)) for p in parts_raw]
+    Message(role=role, parts=parts, name=get(d, "name", nothing))
+end
+
+function messages_from_json(data::Vector)::Vector{Message}
+    [message_from_dict(d) for d in data]
+end
+
 # ── Request / Response ─────────────────────────────────────────────
 
 struct LMRequest

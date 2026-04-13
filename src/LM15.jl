@@ -46,6 +46,7 @@ export
     Part, TextPart, ThinkingPart, RefusalPart, CitationPart,
     ImageURL, ImageBase64, AudioBase64, DocumentURL, ToolCallPart, ToolResultPart,
     DataSource, decode_bytes, Message, UserMessage, AssistantMessage, ToolResultMessage,
+    messages_from_json, message_from_dict, part_from_dict,
     Tool, FunctionTool, BuiltinTool, ToolCallInfo,
     Config, LMRequest, LMResponse, Usage, StreamEvent, StreamChunk,
     ErrorInfo, PartDelta,

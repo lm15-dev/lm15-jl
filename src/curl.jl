@@ -5,9 +5,9 @@ const _AUTH_HEADERS = Set(["authorization", "x-api-key", "x-goog-api-key"])
 function _build_lm_request(model::String, prompt; messages=nothing, system=nothing, tools=Tool[],
                            reasoning=nothing, prefill=nothing, output=nothing,
                            prompt_caching=false, temperature=nothing, max_tokens=nothing,
-                           top_p=nothing, stop=nothing)
+                           top_p=nothing, stop=nothing, provider_config=nothing)
     final_messages = if messages !== nothing
-        copy(messages)
+        Message[m for m in messages]
     elseif prompt !== nothing
         [UserMessage(prompt)]
     else
@@ -19,6 +19,13 @@ function _build_lm_request(model::String, prompt; messages=nothing, system=nothi
     provider_cfg = Dict{String,Any}()
     prompt_caching && (provider_cfg["prompt_caching"] = true)
     output !== nothing && (provider_cfg["output"] = output)
+
+    # Merge provider_config passthrough
+    if provider_config !== nothing
+        for (k, v) in provider_config
+            provider_cfg[k] = v
+        end
+    end
 
     reasoning_cfg = if reasoning === true
         Dict{String,Any}("enabled" => true)
@@ -74,7 +81,7 @@ function http_request_to_dict(req::HttpRequest)
         "method" => req.method,
         "url" => req.url,
         "headers" => headers,
-        "params" => isempty(req.params) ? nothing : copy(req.params),
+        "params" => isempty(req.params) ? nothing : Dict(req.params),
         "body" => body,
     )
 end

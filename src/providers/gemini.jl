@@ -23,10 +23,15 @@ function gemini_part(p::Part)
         elseif p.source.type == "base64"
             return Dict{String,Any}("inlineData" => Dict{String,Any}("mimeType"=>mime, "data"=>p.source.data))
         end
+    elseif p.type == "tool_call"
+        fc = Dict{String,Any}("name"=>something(p.name, ""), "args"=>something(p.input, Dict{String,Any}()))
+        p.id !== nothing && (fc["id"] = p.id)
+        return Dict{String,Any}("functionCall" => fc)
     elseif p.type == "tool_result"
         txt = p.content !== nothing ? parts_to_text(p.content) : ""
-        return Dict{String,Any}("functionResponse" => Dict{String,Any}(
-            "name"=>something(p.name, "tool"), "response"=>Dict{String,Any}("result"=>Dict{String,Any}("text"=>txt))))
+        fr = Dict{String,Any}("name"=>something(p.name, "tool"), "response"=>Dict{String,Any}("result"=>txt))
+        p.id !== nothing && (fr["id"] = p.id)
+        return Dict{String,Any}("functionResponse" => fr)
     end
     Dict{String,Any}("text" => something(p.text, ""))
 end
@@ -53,6 +58,13 @@ function build_request(a::GeminiAdapter, request::LMRequest, stream::Bool)
              "parameters"=>something(t.parameters, Dict{String,Any}("type"=>"OBJECT","properties"=>Dict{String,Any}())))
              for t in request.tools if t.type == "function"]
     !isempty(tools) && (payload["tools"] = [Dict{String,Any}("functionDeclarations" => tools)])
+
+    if request.config.provider !== nothing
+        for (k, v) in request.config.provider
+            k in ("prompt_caching", "output") && continue
+            payload[k] = v
+        end
+    end
 
     endpoint = stream ? "streamGenerateContent" : "generateContent"
     params = Dict{String,String}()

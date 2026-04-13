@@ -10,9 +10,32 @@ OpenAIAdapter(api_key; base_url="https://api.openai.com/v1") = OpenAIAdapter(api
 provider_name(::OpenAIAdapter) = "openai"
 env_keys(::OpenAIAdapter) = ["OPENAI_API_KEY"]
 
+function _build_openai_input(messages::Vector{Message})
+    items = Any[]
+    for msg in messages
+        if msg.role == "tool"
+            for part in msg.parts
+                if part.type == "tool_result" && part.id !== nothing
+                    txt = part.content !== nothing ? parts_to_text(part.content) : ""
+                    push!(items, Dict{String,Any}("type"=>"function_call_output", "call_id"=>part.id, "output"=>txt))
+                end
+            end
+            continue
+        end
+        content_parts = [part_to_openai_input(p) for p in msg.parts if p.type != "tool_call" && p.type != "tool_result"]
+        !isempty(content_parts) && push!(items, Dict{String,Any}("role"=>msg.role, "content"=>content_parts))
+        for part in msg.parts
+            if part.type == "tool_call" && part.id !== nothing && part.name !== nothing
+                args = part.input !== nothing ? JSON.serialize(part.input) : "{}"
+                push!(items, Dict{String,Any}("type"=>"function_call", "call_id"=>part.id, "name"=>part.name, "arguments"=>args))
+            end
+        end
+    end
+    items
+end
+
 function build_request(a::OpenAIAdapter, request::LMRequest, stream::Bool)
-    messages = [message_to_openai_input(m) for m in request.messages]
-    payload = Dict{String,Any}("model" => request.model, "input" => messages, "stream" => stream)
+    payload = Dict{String,Any}("model" => request.model, "input" => _build_openai_input(request.messages), "stream" => stream)
 
     request.system !== nothing && (payload["instructions"] = request.system)
     request.config.max_tokens !== nothing && (payload["max_output_tokens"] = request.config.max_tokens)

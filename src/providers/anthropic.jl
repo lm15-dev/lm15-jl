@@ -13,7 +13,7 @@ provider_name(::AnthropicAdapter) = "anthropic"
 env_keys(::AnthropicAdapter) = ["ANTHROPIC_API_KEY"]
 
 function build_request(a::AnthropicAdapter, request::LMRequest, stream::Bool)
-    messages = [Dict{String,Any}("role" => m.role,
+    messages = [Dict{String,Any}("role" => m.role == "tool" ? "user" : m.role,
         "content" => [anthropic_part(p) for p in m.parts]) for m in request.messages]
 
     max_tokens = something(request.config.max_tokens, 1024)
@@ -33,6 +33,13 @@ function build_request(a::AnthropicAdapter, request::LMRequest, stream::Bool)
         payload["thinking"] = Dict{String,Any}("type"=>"enabled", "budget_tokens"=>budget)
     end
 
+    if request.config.provider !== nothing
+        for (k, v) in request.config.provider
+            k == "prompt_caching" && continue
+            payload[k] = v
+        end
+    end
+
     body = Vector{UInt8}(JSON.serialize(payload))
     HttpRequest(method="POST", url="$(a.base_url)/messages",
         headers=Dict("x-api-key"=>a.api_key, "anthropic-version"=>a.api_version, "content-type"=>"application/json"),
@@ -42,10 +49,15 @@ end
 function anthropic_part(p::Part)
     if p.type == "text"
         return Dict{String,Any}("type"=>"text", "text"=>something(p.text, ""))
+    elseif p.type == "tool_call"
+        return Dict{String,Any}("type"=>"tool_use", "id"=>p.id, "name"=>p.name,
+            "input"=>something(p.input, Dict{String,Any}()))
     elseif p.type == "tool_result"
         txt = p.content !== nothing ? parts_to_text(p.content) : ""
-        return Dict{String,Any}("type"=>"tool_result", "tool_use_id"=>p.id,
-            "is_error"=>something(p.is_error, false), "content"=>[Dict{String,Any}("type"=>"text","text"=>txt)])
+        out = Dict{String,Any}("type"=>"tool_result", "tool_use_id"=>p.id)
+        !isempty(txt) && (out["content"] = txt)
+        p.is_error === true && (out["is_error"] = true)
+        return out
     elseif p.type == "image" && p.source !== nothing
         src = p.source
         if src.type == "url"

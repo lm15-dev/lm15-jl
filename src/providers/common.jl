@@ -9,7 +9,9 @@ function part_to_openai_input(p::Part)
         return Dict{String,Any}("type" => "input_text", "text" => something(p.text, ""))
     elseif p.type == "image" && p.source !== nothing
         if p.source.type == "url"
-            return Dict{String,Any}("type" => "input_image", "image_url" => p.source.url)
+            out = Dict{String,Any}("type" => "input_image", "image_url" => p.source.url)
+            p.source.detail !== nothing && (out["detail"] = p.source.detail)
+            return out
         elseif p.source.type == "base64"
             return Dict{String,Any}("type" => "input_image", "image_url" => "data:$(p.source.media_type);base64,$(p.source.data)")
         end
