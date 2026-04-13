@@ -164,8 +164,27 @@ function thinking(r::LMResponse)
 end
 
 tool_calls(r::LMResponse) = [p for p in r.message.parts if p.type == "tool_call"]
+citations(r::LMResponse) = [p for p in r.message.parts if p.type == "citation"]
 image(r::LMResponse) = findfirst(p -> p.type == "image", r.message.parts) |> i -> i === nothing ? nothing : r.message.parts[i]
 audio(r::LMResponse) = findfirst(p -> p.type == "audio", r.message.parts) |> i -> i === nothing ? nothing : r.message.parts[i]
+
+function json(r::LMResponse)
+    t = text(r)
+    t === nothing && error("response contains no text")
+    JSON.parse(t)
+end
+
+function image_bytes(r::LMResponse)
+    img = image(r)
+    img === nothing && error("response contains no image")
+    decode_bytes(img.source)
+end
+
+function audio_bytes(r::LMResponse)
+    aud = audio(r)
+    aud === nothing && error("response contains no audio")
+    decode_bytes(aud.source)
+end
 
 # ── Streaming ──────────────────────────────────────────────────────
 
@@ -234,3 +253,13 @@ struct FileUploadResponse
     id::String
     provider::Union{Dict{String,Any},Nothing}
 end
+
+struct ImageGenerationRequest
+    model::String
+    prompt::String
+    size::Union{String,Nothing}
+    provider::Union{Dict{String,Any},Nothing}
+end
+
+ImageGenerationRequest(; model, prompt, size=nothing, provider=nothing) =
+    ImageGenerationRequest(model, prompt, size, provider)

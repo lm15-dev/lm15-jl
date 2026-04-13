@@ -33,6 +33,8 @@ include("model.jl")
 include("conversation.jl")
 include("middleware.jl")
 include("cost.jl")
+include("model_catalog.jl")
+include("discovery.jl")
 include("factory.jl")
 include("api.jl")
 
@@ -66,11 +68,17 @@ export
     CostBreakdown, estimate_cost,
     # Factory
     build_default, providers,
+    # Model catalog + Discovery
+    ModelSpec, fetch_models_dev, models, providers_info,
     # Capabilities
     resolve_provider,
     # API
-    call, model, prepare, send, configure!,
+    call, model, prepare, send, upload, configure!,
     # Accessors
-    text, thinking, tool_calls, finish_reason, usage, image, audio, response
+    text, thinking, tool_calls, citations, finish_reason, usage,
+    image, audio, json, image_bytes, audio_bytes, response,
+    # Model extras
+    copy, upload,
+    decode_bytes
 
 end # module

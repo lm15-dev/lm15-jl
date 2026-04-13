@@ -33,12 +33,10 @@ finish_reason(r::LMResult) = let resp = response(r); resp !== nothing ? resp.fin
 usage(r::LMResult) = let resp = response(r); resp !== nothing ? resp.usage : Usage() end
 image(r::LMResult) = let resp = response(r); resp !== nothing ? image(resp) : nothing end
 audio(r::LMResult) = let resp = response(r); resp !== nothing ? audio(resp) : nothing end
-
-function Base.parse(::Type{T}, r::LMResult) where T
-    t = text(r)
-    t === nothing && error("response contains no text")
-    JSON.parse(t)
-end
+citations(r::LMResult) = let resp = response(r); resp !== nothing ? citations(resp) : Part[] end
+json(r::LMResult) = let resp = response(r); resp !== nothing ? json(resp) : error("no response") end
+image_bytes(r::LMResult) = let resp = response(r); resp !== nothing ? image_bytes(resp) : error("no response") end
+audio_bytes(r::LMResult) = let resp = response(r); resp !== nothing ? audio_bytes(resp) : error("no response") end
 
 # ── Streaming ───────────────────────────────────────────────────────
 

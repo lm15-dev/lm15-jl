@@ -173,4 +173,37 @@ end
     @test_throws LM15Error LM15.complete(lm, LMRequest(model="test", messages=[UserMessage("hi")]))
 end
 
+@testset "Additional accessors" begin
+    resp = LMResponse("r1", "test",
+        Message(role="assistant", parts=[TextPart("{\"name\":\"Alice\",\"age\":30}")]),
+        "stop", Usage(), nothing)
+    j = json(resp)
+    @test j["name"] == "Alice"
+    @test j["age"] == 30
+
+    resp2 = LMResponse("r2", "test",
+        Message(role="assistant", parts=[
+            TextPart("text"),
+            CitationPart(text="src", url="https://x.com", title="X"),
+        ]),
+        "stop", Usage(), nothing)
+    @test length(citations(resp2)) == 1
+    @test citations(resp2)[1].url == "https://x.com"
+end
+
+@testset "Model copy" begin
+    lm = UniversalLM()
+    m = Model(lm, "test", system="original")
+    m2 = LM15.copy(m, system="override")
+    @test m2.system == "override"
+    @test m.system == "original"
+    @test m2.model_name == "test"
+end
+
+@testset "Providers info" begin
+    p = providers()
+    @test haskey(p, "openai")
+    @test "OPENAI_API_KEY" in p["openai"]
+end
+
 end # main testset

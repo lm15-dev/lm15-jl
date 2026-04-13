@@ -31,6 +31,45 @@ function Model(lm::UniversalLM, model_name::String;
           Message[], HistoryEntry[], Part[])
 end
 
+function copy(m::Model; model_name=m.model_name, system=m.system, tools=m.tools,
+              provider=m.provider, retries=m.retries, prompt_caching=m.prompt_caching,
+              temperature=m.temperature, max_tokens=m.max_tokens, max_tool_rounds=m.max_tool_rounds,
+              on_tool_call=m.on_tool_call, keep_history=true)
+    new_m = Model(m.lm, model_name; system=system, tools=tools, provider=provider,
+        retries=retries, prompt_caching=prompt_caching, temperature=temperature,
+        max_tokens=max_tokens, max_tool_rounds=max_tool_rounds, on_tool_call=on_tool_call)
+    if keep_history
+        append!(new_m.conversation, m.conversation)
+        append!(new_m.history, m.history)
+        append!(new_m.pending_tool_calls, m.pending_tool_calls)
+    end
+    new_m
+end
+
+function upload(m::Model, path::String; media_type=nothing)
+    data = read(path)
+    filename = basename(path)
+    if media_type === nothing
+        ext = lowercase(splitext(path)[2])
+        mime_map = Dict(".pdf"=>"application/pdf", ".txt"=>"text/plain",
+            ".png"=>"image/png", ".jpg"=>"image/jpeg", ".jpeg"=>"image/jpeg",
+            ".gif"=>"image/gif", ".webp"=>"image/webp",
+            ".mp3"=>"audio/mpeg", ".wav"=>"audio/wav",
+            ".mp4"=>"video/mp4", ".webm"=>"video/webm")
+        media_type = get(mime_map, ext, "application/octet-stream")
+    end
+    prov = something(m.provider, try resolve_provider(m.model_name) catch; "" end)
+    req = FileUploadRequest(m.model_name, filename, data, media_type)
+    adapter = resolve_adapter(m.lm, m.model_name, prov)
+    resp = do_file_upload(adapter, req)
+    ds = DataSource(type="file", file_id=resp.id, media_type=media_type)
+    if startswith(media_type, "image/"); return Part(type="image", source=ds)
+    elseif startswith(media_type, "audio/"); return Part(type="audio", source=ds)
+    elseif startswith(media_type, "video/"); return Part(type="video", source=ds)
+    else; return Part(type="document", source=ds)
+    end
+end
+
 function clear_history!(m::Model)
     empty!(m.history)
     empty!(m.conversation)

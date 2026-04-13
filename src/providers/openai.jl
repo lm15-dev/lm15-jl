@@ -152,6 +152,52 @@ function parse_stream_event(a::OpenAIAdapter, request::LMRequest, raw::SSEEvent)
     nothing
 end
 
+function do_file_upload(a::OpenAIAdapter, request::FileUploadRequest)
+    boundary = "lm15-$(time_ns())"
+    body = Vector{UInt8}()
+    append!(body, Vector{UInt8}("--$boundary\r\nContent-Disposition: form-data; name=\"purpose\"\r\n\r\nassistants\r\n"))
+    append!(body, Vector{UInt8}("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$(request.filename)\"\r\nContent-Type: $(request.media_type)\r\n\r\n"))
+    append!(body, request.bytes_data)
+    append!(body, Vector{UInt8}("\r\n--$boundary--\r\n"))
+
+    req = HttpRequest(method="POST", url="$(a.base_url)/files",
+        headers=Dict("Authorization"=>"Bearer $(a.api_key)", "Content-Type"=>"multipart/form-data; boundary=$boundary"),
+        body=body, timeout=120.0)
+    resp = http_request(req)
+    resp.status >= 400 && throw(normalize_error(a, resp.status, text(resp)))
+    data = JSON.parse(String(resp.body))
+    FileUploadResponse(get(data, "id", ""), data)
+end
+
+function do_image_generate(a::OpenAIAdapter, request::ImageGenerationRequest)
+    payload = Dict{String,Any}("model"=>request.model, "prompt"=>request.prompt)
+    request.size !== nothing && (payload["size"] = request.size)
+    body = Vector{UInt8}(JSON.serialize(payload))
+    req = HttpRequest(method="POST", url="$(a.base_url)/images/generations",
+        headers=Dict("Authorization"=>"Bearer $(a.api_key)", "Content-Type"=>"application/json"),
+        body=body, timeout=120.0)
+    resp = http_request(req)
+    resp.status >= 400 && throw(normalize_error(a, resp.status, text(resp)))
+    data = JSON.parse(String(resp.body))
+    images = DataSource[]
+    for d in get(data, "data", Any[])
+        d isa Dict || continue
+        b64 = get(d, "b64_json", nothing)
+        url = get(d, "url", nothing)
+        if b64 !== nothing
+            push!(images, DataSource(type="base64", media_type="image/png", data=b64))
+        elseif url !== nothing
+            push!(images, DataSource(type="url", url=url, media_type="image/png"))
+        end
+    end
+    ImageGenerationResponse(images, data)
+end
+
+struct ImageGenerationResponse
+    images::Vector{DataSource}
+    provider::Union{Dict{String,Any},Nothing}
+end
+
 function do_embeddings(a::OpenAIAdapter, request::EmbeddingRequest)
     payload = Dict{String,Any}("model" => request.model, "input" => request.inputs)
     body = Vector{UInt8}(JSON.serialize(payload))

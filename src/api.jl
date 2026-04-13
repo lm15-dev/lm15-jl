@@ -122,6 +122,13 @@ function prepare(model_name::String, prompt::String; kwargs...)
         config=Config())
 end
 
+"""Upload a file and return a Part."""
+function upload(model_name::String, path::String; provider=nothing, api_key=nothing, env=nothing, media_type=nothing)
+    prov = provider !== nothing ? provider : try resolve_provider(model_name) catch; "" end
+    m = model(model_name, provider=prov, api_key=api_key, env=env)
+    LM15.upload(m, path; media_type=media_type)
+end
+
 """Send a pre-built LMRequest."""
 function send(request::LMRequest; kwargs...)
     provider = get(kwargs, :provider, nothing)
