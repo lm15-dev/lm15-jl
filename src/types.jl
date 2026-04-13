@@ -64,13 +64,14 @@ struct Tool
     name::String
     description::Union{String,Nothing}
     parameters::Union{Dict{String,Any},Nothing}
+    builtin_config::Union{Dict{String,Any},Nothing}
     fn_::Union{Function,Nothing}
 end
 
 FunctionTool(name, description; parameters=Dict{String,Any}("type"=>"object","properties"=>Dict{String,Any}()), fn_=nothing) =
-    Tool("function", name, description, parameters, fn_)
+    Tool("function", name, description, parameters, nothing, fn_)
 
-BuiltinTool(name) = Tool("builtin", name, nothing, nothing, nothing)
+BuiltinTool(name; config=nothing) = Tool("builtin", name, nothing, nothing, config, nothing)
 
 struct ToolCallInfo
     id::String

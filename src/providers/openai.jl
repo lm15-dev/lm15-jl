@@ -1,5 +1,23 @@
 # OpenAI adapter (Responses API).
 
+const _OPENAI_BUILTIN_MAP = Dict(
+    "web_search" => "web_search_preview",
+    "code_execution" => "code_interpreter",
+    "file_search" => "file_search",
+    "computer_use" => "computer_use_preview",
+)
+
+function _builtin_to_openai(tool)
+    wire_type = get(_OPENAI_BUILTIN_MAP, tool.name, tool.name)
+    out = Dict{String,Any}("type" => wire_type)
+    if tool.builtin_config !== nothing
+        for (k, v) in tool.builtin_config
+            out[k] = v
+        end
+    end
+    out
+end
+
 struct OpenAIAdapter
     api_key::String
     base_url::String
@@ -41,10 +59,16 @@ function build_request(a::OpenAIAdapter, request::LMRequest, stream::Bool)
     request.config.max_tokens !== nothing && (payload["max_output_tokens"] = request.config.max_tokens)
     request.config.temperature !== nothing && (payload["temperature"] = request.config.temperature)
 
-    tools = [Dict{String,Any}("type"=>"function", "name"=>t.name, "description"=>t.description,
-             "parameters"=>something(t.parameters, Dict{String,Any}("type"=>"object","properties"=>Dict{String,Any}())))
-             for t in request.tools if t.type == "function"]
-    !isempty(tools) && (payload["tools"] = tools)
+    tools_wire = Dict{String,Any}[]
+    for t in request.tools
+        if t.type == "function"
+            push!(tools_wire, Dict{String,Any}("type"=>"function", "name"=>t.name, "description"=>t.description,
+                "parameters"=>something(t.parameters, Dict{String,Any}("type"=>"object","properties"=>Dict{String,Any}()))))
+        elseif t.type == "builtin"
+            push!(tools_wire, _builtin_to_openai(t))
+        end
+    end
+    !isempty(tools_wire) && (payload["tools"] = tools_wire)
 
     if request.config.provider !== nothing
         for (k, v) in request.config.provider

@@ -1,5 +1,20 @@
 # Anthropic adapter (Messages API).
 
+const _ANTHROPIC_BUILTIN_MAP = Dict(
+    "code_execution" => "code_execution_20250522",
+)
+
+function _builtin_to_anthropic(tool)
+    wire_type = get(_ANTHROPIC_BUILTIN_MAP, tool.name, tool.name)
+    out = Dict{String,Any}("type" => wire_type, "name" => tool.name)
+    if tool.builtin_config !== nothing
+        for (k, v) in tool.builtin_config
+            out[k] = v
+        end
+    end
+    out
+end
+
 struct AnthropicAdapter
     api_key::String
     base_url::String
@@ -23,10 +38,16 @@ function build_request(a::AnthropicAdapter, request::LMRequest, stream::Bool)
     request.system !== nothing && (payload["system"] = request.system)
     request.config.temperature !== nothing && (payload["temperature"] = request.config.temperature)
 
-    tools = [Dict{String,Any}("name"=>t.name, "description"=>t.description,
-             "input_schema"=>something(t.parameters, Dict{String,Any}("type"=>"object","properties"=>Dict{String,Any}())))
-             for t in request.tools if t.type == "function"]
-    !isempty(tools) && (payload["tools"] = tools)
+    tools_wire = Dict{String,Any}[]
+    for t in request.tools
+        if t.type == "function"
+            push!(tools_wire, Dict{String,Any}("name"=>t.name, "description"=>t.description,
+                "input_schema"=>something(t.parameters, Dict{String,Any}("type"=>"object","properties"=>Dict{String,Any}()))))
+        elseif t.type == "builtin"
+            push!(tools_wire, _builtin_to_anthropic(t))
+        end
+    end
+    !isempty(tools_wire) && (payload["tools"] = tools_wire)
 
     if request.config.reasoning !== nothing && get(request.config.reasoning, "enabled", false) == true
         budget = get(request.config.reasoning, "budget", 1024)

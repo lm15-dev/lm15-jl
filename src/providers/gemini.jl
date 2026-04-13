@@ -1,5 +1,16 @@
 # Gemini adapter (GenerativeLanguage API).
 
+const _GEMINI_BUILTIN_MAP = Dict(
+    "web_search" => "googleSearch",
+    "code_execution" => "codeExecution",
+)
+
+function _builtin_to_gemini(tool)
+    wire_key = get(_GEMINI_BUILTIN_MAP, tool.name, tool.name)
+    cfg = tool.builtin_config !== nothing ? Dict{String,Any}(tool.builtin_config) : Dict{String,Any}()
+    Dict{String,Any}(wire_key => cfg)
+end
+
 struct GeminiAdapter
     api_key::String
     base_url::String
@@ -54,10 +65,15 @@ function build_request(a::GeminiAdapter, request::LMRequest, stream::Bool)
     request.config.stop !== nothing && (cfg["stopSequences"] = request.config.stop)
     !isempty(cfg) && (payload["generationConfig"] = cfg)
 
-    tools = [Dict{String,Any}("name"=>t.name, "description"=>t.description,
+    func_decls = [Dict{String,Any}("name"=>t.name, "description"=>t.description,
              "parameters"=>something(t.parameters, Dict{String,Any}("type"=>"OBJECT","properties"=>Dict{String,Any}())))
              for t in request.tools if t.type == "function"]
-    !isempty(tools) && (payload["tools"] = [Dict{String,Any}("functionDeclarations" => tools)])
+    tools_wire = Dict{String,Any}[]
+    !isempty(func_decls) && push!(tools_wire, Dict{String,Any}("functionDeclarations" => func_decls))
+    for t in request.tools
+        t.type == "builtin" && push!(tools_wire, _builtin_to_gemini(t))
+    end
+    !isempty(tools_wire) && (payload["tools"] = tools_wire)
 
     if request.config.provider !== nothing
         for (k, v) in request.config.provider
