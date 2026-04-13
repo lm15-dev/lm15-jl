@@ -76,6 +76,16 @@ function clear_history!(m::Model)
     empty!(m.pending_tool_calls)
 end
 
+function total_cost(m::Model)
+    isempty(m.history) && return cost_index() === nothing ? nothing : CostBreakdown()
+    found = CostBreakdown[]
+    for entry in m.history
+        c = lookup_cost(entry.response.model, entry.response.usage)
+        c !== nothing && push!(found, c)
+    end
+    isempty(found) ? nothing : sum_costs(found)
+end
+
 function prepare(m::Model, prompt::String)
     messages = vcat(m.conversation, [UserMessage(prompt)])
     build_config(m) |> cfg -> LMRequest(

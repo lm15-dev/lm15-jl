@@ -4,11 +4,17 @@ const _defaults = Dict{String,Any}()
 const _client_cache = Dict{String,UniversalLM}()
 
 """Configure module-level defaults."""
-function configure!(; env=nothing, api_key=nothing)
+function configure!(; env=nothing, api_key=nothing, track_costs=false)
     empty!(_defaults)
     empty!(_client_cache)
     env !== nothing && (_defaults["env"] = env)
     api_key !== nothing && (_defaults["api_key"] = api_key)
+
+    if track_costs
+        enable_cost_tracking!()
+    else
+        disable_cost_tracking!()
+    end
     nothing
 end
 

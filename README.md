@@ -87,12 +87,39 @@ user!(conv, "My name is Max.")
 # ... pass conv.messages to call()
 ```
 
+### Cost tracking
+
+```julia
+configure!(track_costs=true)
+
+result = call("gpt-4.1-mini", "Explain TCP.")
+println(cost(result))
+
+m = model("claude-sonnet-4")
+println(text(call(m, "What is TCP?")))
+println(text(call(m, "What is UDP?")))
+println(total_cost(m))
+```
+
+`configure!(track_costs=true)` fetches pricing from models.dev.
+You can also call `enable_cost_tracking!()` directly, or use
+`estimate_cost(usage, spec)` / `estimate_cost(usage, rates, provider)` manually.
+
 ### Reusable model
 
 ```julia
 gpt = model("gpt-4.1-mini", system="You are terse.")
 r1 = call(gpt, "Hello!")
 r2 = call(gpt, "What did I say?")  # remembers conversation
+```
+
+### Dump curl / HTTP request
+
+```julia
+using LM15
+
+println(dump_curl("gpt-4.1-mini", "Hello.", env=".env"))
+println(JSON.serialize(dump_http("gpt-4.1-mini", "Hello.", env=".env")))
 ```
 
 ## Dependencies

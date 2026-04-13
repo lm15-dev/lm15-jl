@@ -11,11 +11,14 @@ struct CostBreakdown
     total::Float64
 end
 
+CostBreakdown() = CostBreakdown(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
 const ADDITIVE_CACHE_PROVIDERS = Set(["anthropic"])
 const SEPARATE_REASONING_PROVIDERS = Set(["gemini", "google"])
+const _cost_index_ref = Ref{Union{Dict{String,ModelSpec},Nothing}}(nothing)
 
-function estimate_cost(usage::Usage, rates::Dict{String,Float64}, provider::String)
-    per(r) = get(rates, r, 0.0) / 1_000_000
+function estimate_cost(usage::Usage, rates::Dict{String,<:Real}, provider::String)
+    per(r) = Float64(get(rates, r, 0.0)) / 1_000_000
 
     cr = something(usage.cache_read_tokens, 0)
     cw = something(usage.cache_write_tokens, 0)
@@ -34,4 +37,53 @@ function estimate_cost(usage::Usage, rates::Dict{String,Float64}, provider::Stri
     cia = ia * per("input_audio"); coa = oa * per("output_audio")
 
     CostBreakdown(ci, co, ccr, ccw, crr, cia, coa, ci+co+ccr+ccw+crr+cia+coa)
+end
+
+function estimate_cost(usage::Usage, spec::ModelSpec)
+    rates_any = get(spec.raw, "cost", Dict{String,Any}())
+    rates = Dict{String,Float64}(string(k) => Float64(v) for (k, v) in rates_any if v isa Real)
+    estimate_cost(usage, rates, spec.provider)
+end
+
+function enable_cost_tracking!()
+    specs = fetch_models_dev()
+    _cost_index_ref[] = Dict(s.id => s for s in specs if haskey(s.raw, "cost"))
+    nothing
+end
+
+function disable_cost_tracking!()
+    _cost_index_ref[] = nothing
+    nothing
+end
+
+cost_index() = _cost_index_ref[]
+
+function set_cost_index!(index::Union{Dict{String,ModelSpec},Nothing})
+    _cost_index_ref[] = index
+    nothing
+end
+
+function lookup_cost(model::String, usage::Usage)
+    index = _cost_index_ref[]
+    index === nothing && return nothing
+    spec = get(index, model, nothing)
+    spec === nothing && return nothing
+    estimate_cost(usage, spec)
+end
+
+function sum_costs(costs)
+    total = CostBreakdown()
+    for cost in costs
+        total = CostBreakdown(
+            total.input + cost.input,
+            total.output + cost.output,
+            total.cache_read + cost.cache_read,
+            total.cache_write + cost.cache_write,
+            total.reasoning + cost.reasoning,
+            total.input_audio + cost.input_audio,
+            total.output_audio + cost.output_audio,
+            total.total + cost.total,
+        )
+    end
+    total
 end

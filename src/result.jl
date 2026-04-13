@@ -31,6 +31,7 @@ thinking(r::LMResult) = let resp = response(r); resp !== nothing ? thinking(resp
 tool_calls(r::LMResult) = let resp = response(r); resp !== nothing ? tool_calls(resp) : Part[] end
 finish_reason(r::LMResult) = let resp = response(r); resp !== nothing ? resp.finish_reason : nothing end
 usage(r::LMResult) = let resp = response(r); resp !== nothing ? resp.usage : Usage() end
+cost(r::LMResult) = let resp = response(r); resp !== nothing ? lookup_cost(resp.model, resp.usage) : nothing end
 image(r::LMResult) = let resp = response(r); resp !== nothing ? image(resp) : nothing end
 audio(r::LMResult) = let resp = response(r); resp !== nothing ? audio(resp) : nothing end
 citations(r::LMResult) = let resp = response(r); resp !== nothing ? citations(resp) : Part[] end

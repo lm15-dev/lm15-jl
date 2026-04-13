@@ -115,6 +115,56 @@ end
     @test cost.total > 0
     @test cost.input ≈ 1000 * 3.0 / 1_000_000
     @test cost.output ≈ 500 * 15.0 / 1_000_000
+
+    spec = ModelSpec(
+        "gpt-4.1-mini", "openai", nothing, nothing,
+        String[], String[], false, false, false,
+        Dict{String,Any}("cost" => Dict{String,Any}("input" => 3.0, "output" => 15.0)),
+    )
+    cost2 = estimate_cost(u, spec)
+    @test cost2.total ≈ cost.total
+end
+
+@testset "Cost tracking" begin
+    disable_cost_tracking!()
+    @test lookup_cost("gpt-4.1-mini", Usage(input_tokens=100, output_tokens=50, total_tokens=150)) === nothing
+
+    LM15.set_cost_index!(Dict(
+        "gpt-4.1-mini" => ModelSpec(
+            "gpt-4.1-mini", "openai", nothing, nothing,
+            String[], String[], false, false, false,
+            Dict{String,Any}("cost" => Dict{String,Any}("input" => 3.0, "output" => 15.0)),
+        ),
+    ))
+
+    r = LMResult(
+        request=LMRequest(model="gpt-4.1-mini", messages=[UserMessage("hi")]),
+        start_stream=(req) -> [
+            StreamEvent(type="start", id="r1", model="gpt-4.1-mini"),
+            StreamEvent(type="delta", part_index=0, delta=PartDelta("text", "hello", nothing, nothing)),
+            StreamEvent(type="end", finish_reason="stop", usage=Usage(input_tokens=1000, output_tokens=500, total_tokens=1500)),
+        ],
+    )
+    rc = cost(r)
+    @test rc !== nothing
+    @test rc.input ≈ 1000 * 3.0 / 1_000_000
+    @test rc.output ≈ 500 * 15.0 / 1_000_000
+
+    m = Model(UniversalLM(), "gpt-4.1-mini")
+    @test total_cost(m).total == 0.0
+    push!(m.history, HistoryEntry(
+        LMRequest(model="gpt-4.1-mini", messages=[UserMessage("one")]),
+        LMResponse("r1", "gpt-4.1-mini", AssistantMessage("ok"), "stop", Usage(input_tokens=1000, output_tokens=500, total_tokens=1500), nothing),
+    ))
+    push!(m.history, HistoryEntry(
+        LMRequest(model="gpt-4.1-mini", messages=[UserMessage("two")]),
+        LMResponse("r2", "gpt-4.1-mini", AssistantMessage("ok"), "stop", Usage(input_tokens=1000, output_tokens=500, total_tokens=1500), nothing),
+    ))
+    tc = total_cost(m)
+    @test tc !== nothing
+    @test tc.total ≈ 2 * ((1000 * 3.0 / 1_000_000) + (500 * 15.0 / 1_000_000))
+
+    disable_cost_tracking!()
 end
 
 @testset "Providers" begin

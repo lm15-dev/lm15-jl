@@ -1,4 +1,4 @@
-# ModelSpec + fetch from models.dev
+# Model catalog — fetch model specs from models.dev.
 
 struct ModelSpec
     id::String
@@ -45,4 +45,13 @@ function fetch_models_dev(; timeout::Float64=20.0)
         end
     end
     specs
+end
+
+function build_provider_model_index(specs::Vector{ModelSpec})
+    out = Dict{String,Dict{String,ModelSpec}}()
+    for s in specs
+        provider_map = get!(out, s.provider, Dict{String,ModelSpec}())
+        provider_map[s.id] = s
+    end
+    out
 end

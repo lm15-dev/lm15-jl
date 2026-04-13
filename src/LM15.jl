@@ -32,11 +32,12 @@ include("result.jl")
 include("model.jl")
 include("conversation.jl")
 include("middleware.jl")
-include("cost.jl")
 include("model_catalog.jl")
+include("cost.jl")
 include("discovery.jl")
 include("factory.jl")
 include("api.jl")
+include("curl.jl")
 
 # ── Exports ─────────────────────────────────────────────────────────
 
@@ -64,16 +65,21 @@ export
     Conversation, user!, assistant!, prefill!, clear!,
     # Middleware
     with_retries, with_cache, with_history,
+    # Model catalog + Discovery
+    ModelSpec, fetch_models_dev, build_provider_model_index, models, providers_info,
     # Cost
-    CostBreakdown, estimate_cost,
+    CostBreakdown, estimate_cost, enable_cost_tracking!, disable_cost_tracking!,
+    lookup_cost, cost_index,
     # Factory
     build_default, providers,
-    # Model catalog + Discovery
-    ModelSpec, fetch_models_dev, models, providers_info,
     # Capabilities
     resolve_provider,
     # API
     call, model, prepare, send, upload, configure!,
+    # Cost tracking accessors
+    cost, total_cost,
+    # Curl dump helpers
+    build_http_request, dump_curl, dump_http, http_request_to_curl, http_request_to_dict,
     # Accessors
     text, thinking, tool_calls, citations, finish_reason, usage,
     image, audio, json, image_bytes, audio_bytes, response,
