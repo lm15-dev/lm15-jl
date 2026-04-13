@@ -65,6 +65,13 @@ function anthropic_part(p::Part)
         else
             return Dict{String,Any}("type"=>"image", "source"=>Dict{String,Any}("type"=>"base64","media_type"=>src.media_type,"data"=>src.data))
         end
+    elseif p.type == "document" && p.source !== nothing
+        src = p.source
+        if src.type == "url"
+            return Dict{String,Any}("type"=>"document", "source"=>Dict{String,Any}("type"=>"url","url"=>src.url))
+        else
+            return Dict{String,Any}("type"=>"document", "source"=>Dict{String,Any}("type"=>"base64","media_type"=>src.media_type,"data"=>src.data))
+        end
     end
     Dict{String,Any}("type"=>"text", "text"=>something(p.text, ""))
 end
