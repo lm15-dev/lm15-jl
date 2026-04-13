@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/lm15-dev/.github/main/assets/banners/banner-1200x300.png" alt="lm15" width="600">
+</p>
+
 # LM15.jl
 
 One interface for OpenAI, Anthropic, and Gemini. Zero dependencies.
