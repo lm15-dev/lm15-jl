@@ -1,6 +1,7 @@
 # Anthropic adapter (Messages API).
 
 const _ANTHROPIC_BUILTIN_MAP = Dict(
+    "web_search" => "web_search_20250305",
     "code_execution" => "code_execution_20250522",
 )
 
