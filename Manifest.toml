@@ -1,0 +1,15 @@
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.12.5"
+manifest_format = "2.0"
+project_hash = "6334e61ad5f7a39252c6f2f2103143a88c127997"
+
+[[deps.Base64]]
+uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+version = "1.11.0"
+
+[[deps.LM15]]
+deps = ["Base64"]
+path = "."
+uuid = "7a3c8f1e-2d4b-4e6a-9f8c-1b3d5e7a9c2f"
+version = "0.2.0"
