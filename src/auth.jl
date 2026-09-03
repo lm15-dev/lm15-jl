@@ -76,6 +76,7 @@ const PROVIDERS = Dict{String,ProviderSpec}(
     "gemini" => spec(env_keys = ["GEMINI_API_KEY", "GOOGLE_API_KEY"]),
     "groq" => spec(env_keys = ["GROQ_API_KEY"]),
     "openrouter" => spec(env_keys = ["OPENROUTER_API_KEY"]),
+    "deepseek" => spec(env_keys = ["DEEPSEEK_API_KEY"]),
     "ollama" => spec(default_key = "ollama"),
     "vllm" => spec(default_key = "EMPTY"),
     "sglang" => spec(default_key = "EMPTY"),
