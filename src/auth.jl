@@ -78,6 +78,7 @@ const PROVIDERS = Dict{String,ProviderSpec}(
     "openrouter" => spec(env_keys = ["OPENROUTER_API_KEY"]),
     "deepseek" => spec(env_keys = ["DEEPSEEK_API_KEY"]),
     "zai" => spec(env_keys = ["ZAI_API_KEY"]),
+    "deepseek-anthropic" => spec(env_keys = ["DEEPSEEK_API_KEY"]),
     "ollama" => spec(default_key = "ollama"),
     "vllm" => spec(default_key = "EMPTY"),
     "sglang" => spec(default_key = "EMPTY"),
