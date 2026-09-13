@@ -1,0 +1,390 @@
+{
+  "direction": "error",
+  "shim": "julia",
+  "command": [
+    "/home/maxime/.local/bin/julia",
+    "--startup-file=no",
+    "--history-file=no",
+    "--project=.",
+    "bin/vet.jl"
+  ],
+  "sandboxed": true,
+  "capabilities": {
+    "language": "julia",
+    "ops": [
+      "batch_op_build",
+      "batch_op_parse",
+      "build_models_request",
+      "build_request",
+      "cache_op_build",
+      "cache_op_parse",
+      "capabilities",
+      "explain_auth",
+      "file_op_build",
+      "file_op_parse",
+      "generation_build",
+      "generation_parse",
+      "ingest_openai_chat",
+      "normalize_error",
+      "parse_models_response",
+      "parse_response",
+      "replay_live",
+      "replay_stream",
+      "resolve_model",
+      "serde_roundtrip",
+      "sigv4_sign",
+      "surface_dump",
+      "token_exchange_build",
+      "token_exchange_parse",
+      "validate",
+      "video_op_build",
+      "video_op_parse"
+    ],
+    "impl_version": "0.3.0-dev"
+  },
+  "generated": "2026-09-13T10:58:58+00:00",
+  "summary": {
+    "pass": 84,
+    "fail": 0,
+    "skip": 0
+  },
+  "total": 84,
+  "results": [
+    {
+      "id": "anthropic.auth_invalid_key",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.rate_limit",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.context_length",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic_overloaded",
+      "status": "pass"
+    },
+    {
+      "id": "azure-anthropic.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "azure-anthropic.deployment_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.deployment_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.rate_limited",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.content_filter",
+      "status": "pass"
+    },
+    {
+      "id": "azure.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "azure.deployment_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "azure.bad_param",
+      "status": "pass"
+    },
+    {
+      "id": "azure.content_filter",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-anthropic.invalid_signature",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-anthropic.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-anthropic.model_gated",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.invalid_signature",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.bad_param",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.invalid_signature",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.bad_param",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.claude_wrong_door",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.bad_effort",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.bad_effort",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.missing_reasoning_content_with_tools",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.auth_permission_denied",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.rate_limit",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.context_length",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.server_unavailable",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.thinking_disabled",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_choice_named",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.top_k",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.stop_sequence",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.reasoning_none",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.stop",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.n_2",
+      "status": "pass"
+    },
+    {
+      "id": "meta.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "meta.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "meta.reasoning_none",
+      "status": "pass"
+    },
+    {
+      "id": "meta.logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "meta.bad_effort",
+      "status": "pass"
+    },
+    {
+      "id": "meta.top_p_zero",
+      "status": "pass"
+    },
+    {
+      "id": "meta.max_tokens_below_16",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tool_choice_named",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.reasoning_none",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.effort_bogus",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tool_choice_none",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.json_object",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.temperature",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.builtin_code_execution",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.k26_tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.temperature",
+      "status": "pass"
+    },
+    {
+      "id": "openai.auth_invalid_key",
+      "status": "pass"
+    },
+    {
+      "id": "openai.billing_quota",
+      "status": "pass"
+    },
+    {
+      "id": "openai.rate_limit",
+      "status": "pass"
+    },
+    {
+      "id": "openai.context_length",
+      "status": "pass"
+    },
+    {
+      "id": "openai.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "openai.server_error",
+      "status": "pass"
+    },
+    {
+      "id": "xai.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "xai.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "zai.insufficient_balance",
+      "status": "pass"
+    },
+    {
+      "id": "zai.unauthenticated",
+      "status": "pass"
+    },
+    {
+      "id": "zai.model_not_found",
+      "status": "pass"
+    },
+    {
+      "id": "zai.bad_effort",
+      "status": "pass"
+    }
+  ]
+}

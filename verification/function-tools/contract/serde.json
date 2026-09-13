@@ -1,0 +1,514 @@
+{
+  "direction": "serde",
+  "shim": "julia",
+  "command": [
+    "/home/maxime/.local/bin/julia",
+    "--startup-file=no",
+    "--history-file=no",
+    "--project=.",
+    "bin/vet.jl"
+  ],
+  "sandboxed": true,
+  "capabilities": {
+    "language": "julia",
+    "ops": [
+      "batch_op_build",
+      "batch_op_parse",
+      "build_models_request",
+      "build_request",
+      "cache_op_build",
+      "cache_op_parse",
+      "capabilities",
+      "explain_auth",
+      "file_op_build",
+      "file_op_parse",
+      "generation_build",
+      "generation_parse",
+      "ingest_openai_chat",
+      "normalize_error",
+      "parse_models_response",
+      "parse_response",
+      "replay_live",
+      "replay_stream",
+      "resolve_model",
+      "serde_roundtrip",
+      "sigv4_sign",
+      "surface_dump",
+      "token_exchange_build",
+      "token_exchange_parse",
+      "validate",
+      "video_op_build",
+      "video_op_parse"
+    ],
+    "impl_version": "0.3.0-dev"
+  },
+  "generated": "2026-09-13T11:45:50+00:00",
+  "summary": {
+    "pass": 115,
+    "fail": 0,
+    "skip": 0
+  },
+  "total": 115,
+  "results": [
+    {
+      "id": "part.text",
+      "status": "pass"
+    },
+    {
+      "id": "part.text_with_continuation",
+      "status": "pass"
+    },
+    {
+      "id": "part.image_url",
+      "status": "pass"
+    },
+    {
+      "id": "part.audio_data",
+      "status": "pass"
+    },
+    {
+      "id": "part.video_file",
+      "status": "pass"
+    },
+    {
+      "id": "part.document_url",
+      "status": "pass"
+    },
+    {
+      "id": "part.tool_call",
+      "status": "pass"
+    },
+    {
+      "id": "part.tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "part.thinking",
+      "status": "pass"
+    },
+    {
+      "id": "part.refusal",
+      "status": "pass"
+    },
+    {
+      "id": "part.citation",
+      "status": "pass"
+    },
+    {
+      "id": "message.user_multimodal",
+      "status": "pass"
+    },
+    {
+      "id": "message.assistant_tool_call",
+      "status": "pass"
+    },
+    {
+      "id": "message.assistant_with_continuation",
+      "status": "pass"
+    },
+    {
+      "id": "tool.function",
+      "status": "pass"
+    },
+    {
+      "id": "tool.builtin",
+      "status": "pass"
+    },
+    {
+      "id": "tool.function.empty_parameters",
+      "status": "pass"
+    },
+    {
+      "id": "tool_choice.required",
+      "status": "pass"
+    },
+    {
+      "id": "reasoning.medium",
+      "status": "pass"
+    },
+    {
+      "id": "config.full",
+      "status": "pass"
+    },
+    {
+      "id": "error_detail.unsupported_model",
+      "status": "pass"
+    },
+    {
+      "id": "delta.text",
+      "status": "pass"
+    },
+    {
+      "id": "delta.thinking",
+      "status": "pass"
+    },
+    {
+      "id": "delta.audio",
+      "status": "pass"
+    },
+    {
+      "id": "delta.image",
+      "status": "pass"
+    },
+    {
+      "id": "delta.tool_call",
+      "status": "pass"
+    },
+    {
+      "id": "delta.citation",
+      "status": "pass"
+    },
+    {
+      "id": "delta.continuation",
+      "status": "pass"
+    },
+    {
+      "id": "usage.full",
+      "status": "pass"
+    },
+    {
+      "id": "stream.start",
+      "status": "pass"
+    },
+    {
+      "id": "stream.delta",
+      "status": "pass"
+    },
+    {
+      "id": "stream.end",
+      "status": "pass"
+    },
+    {
+      "id": "stream.error",
+      "status": "pass"
+    },
+    {
+      "id": "request.with_tools",
+      "status": "pass"
+    },
+    {
+      "id": "response.with_citation",
+      "status": "pass"
+    },
+    {
+      "id": "audio_format.pcm16",
+      "status": "pass"
+    },
+    {
+      "id": "live_config.full",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.turn",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.audio",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.image",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.text",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.interrupt",
+      "status": "pass"
+    },
+    {
+      "id": "live_client.end_audio",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.audio",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.text",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.tool_call",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.tool_call_delta",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.interrupted",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.turn_end",
+      "status": "pass"
+    },
+    {
+      "id": "live_server.error",
+      "status": "pass"
+    },
+    {
+      "id": "model_info.full",
+      "status": "pass"
+    },
+    {
+      "id": "model_info.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "model_info.pricing-cache",
+      "status": "pass"
+    },
+    {
+      "id": "model_info.extensions-empty-object",
+      "status": "pass"
+    },
+    {
+      "id": "model_info.origin-provider-data",
+      "status": "pass"
+    },
+    {
+      "id": "config.cache-full",
+      "status": "pass"
+    },
+    {
+      "id": "config.cache-minimal",
+      "status": "pass"
+    },
+    {
+      "id": "cache_config.full",
+      "status": "pass"
+    },
+    {
+      "id": "cache_config.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "continuation_state.reasoning-item",
+      "status": "pass"
+    },
+    {
+      "id": "continuation_state.opaque-data",
+      "status": "pass"
+    },
+    {
+      "id": "usage.nothing_reported",
+      "status": "pass"
+    },
+    {
+      "id": "usage.reported_zeros",
+      "status": "pass"
+    },
+    {
+      "id": "usage.partial_input_only",
+      "status": "pass"
+    },
+    {
+      "id": "config.number-float-fields-integral",
+      "status": "pass"
+    },
+    {
+      "id": "config.number-int-fields",
+      "status": "pass"
+    },
+    {
+      "id": "model_info.number-integral-pricing",
+      "status": "pass"
+    },
+    {
+      "id": "batch_request.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "batch_request.full",
+      "status": "pass"
+    },
+    {
+      "id": "batch_job.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "batch_job.full",
+      "status": "pass"
+    },
+    {
+      "id": "batch_entry.succeeded",
+      "status": "pass"
+    },
+    {
+      "id": "batch_entry.errored",
+      "status": "pass"
+    },
+    {
+      "id": "batch_entry.expired",
+      "status": "pass"
+    },
+    {
+      "id": "file_upload_request.bytes",
+      "status": "pass"
+    },
+    {
+      "id": "file_upload_request.path",
+      "status": "pass"
+    },
+    {
+      "id": "file_info.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "file_info.full",
+      "status": "pass"
+    },
+    {
+      "id": "file_info.pending",
+      "status": "pass"
+    },
+    {
+      "id": "file_page.with_cursor",
+      "status": "pass"
+    },
+    {
+      "id": "file_page.last",
+      "status": "pass"
+    },
+    {
+      "id": "image_generation_request.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "image_generation_request.edit_full",
+      "status": "pass"
+    },
+    {
+      "id": "image_generation_response.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "image_generation_response.full",
+      "status": "pass"
+    },
+    {
+      "id": "speech_generation_request.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "speech_generation_request.full",
+      "status": "pass"
+    },
+    {
+      "id": "speech_generation_response.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "speech_generation_response.full",
+      "status": "pass"
+    },
+    {
+      "id": "video_generation_request.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "video_generation_request.full",
+      "status": "pass"
+    },
+    {
+      "id": "video_job.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "video_job.full",
+      "status": "pass"
+    },
+    {
+      "id": "config.logprobs-zero",
+      "status": "pass"
+    },
+    {
+      "id": "config.logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "delta.text-logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "response.with_logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "cache_config.prefix_stable",
+      "status": "pass"
+    },
+    {
+      "id": "cache_config.prefix_history_long",
+      "status": "pass"
+    },
+    {
+      "id": "cache_config.resource",
+      "status": "pass"
+    },
+    {
+      "id": "cache_info.full",
+      "status": "pass"
+    },
+    {
+      "id": "cache_info.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "cache_page.full",
+      "status": "pass"
+    },
+    {
+      "id": "cache_page.empty",
+      "status": "pass"
+    },
+    {
+      "id": "cached_prefix.with_resource",
+      "status": "pass"
+    },
+    {
+      "id": "cached_prefix.marks_only",
+      "status": "pass"
+    },
+    {
+      "id": "token_logprob.full",
+      "status": "pass"
+    },
+    {
+      "id": "token_logprob.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "live_server_event.usage",
+      "status": "pass"
+    },
+    {
+      "id": "credential.api_key",
+      "status": "pass"
+    },
+    {
+      "id": "credential.bearer_token.minimal",
+      "status": "pass"
+    },
+    {
+      "id": "credential.bearer_token.expiring",
+      "status": "pass"
+    },
+    {
+      "id": "credential.aws.long_term",
+      "status": "pass"
+    },
+    {
+      "id": "credential.aws.session",
+      "status": "pass"
+    }
+  ]
+}

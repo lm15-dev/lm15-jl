@@ -9,17 +9,17 @@ using LM15: JSON
 
 const SENTINEL = "SECRET-SENTINEL-DO-NOT-PRINT"
 
-fake_codex_jwt(account_id, exp_seconds) = begin
-    encode(value) = replace(
-        Base64.base64encode(JSON.serialize(value)),
-        '+' => '-', '/' => '_', '=' => "",
-    )
+function fake_codex_jwt(account_id, exp_seconds)
+    encode(value) =
+        replace(Base64.base64encode(JSON.serialize(value)), '+' => '-', '/' => '_', '=' => "")
     header = encode(Dict("alg" => "none", "typ" => "JWT"))
-    payload = encode(Dict(
-        "exp" => exp_seconds,
-        "https://api.openai.com/auth" => Dict("chatgpt_account_id" => account_id),
-    ))
-    "$header.$payload.signature"
+    payload = encode(
+        Dict(
+            "exp" => exp_seconds,
+            "https://api.openai.com/auth" => Dict("chatgpt_account_id" => account_id),
+        ),
+    )
+    return "$header.$payload.signature"
 end
 
 using Base64
@@ -28,15 +28,23 @@ using Base64
     calls = Ref(0)
     provider = () -> "token-$(calls[] += 1)"
     @test resolve_credential(provider) != resolve_credential(provider)
-    @test resolve_credential("static") == "static"
+    @test resolve_credential("static") isa ApiKey
+    @test resolve_credential("static").value == "static"
     credential = StaticCredential(SENTINEL)
     @test !occursin(SENTINEL, sprint(show, credential))
     @test !occursin(SENTINEL, sprint(show, MIME("text/plain"), credential))
-    @test resolve_credential(credential) == SENTINEL
+    @test resolve_credential(credential).value == SENTINEL
 end
 
+include("api.jl")
+include("tools.jl")
+include("streams.jl")
+include("transport.jl")
+include("auth_storage.jl")
+include("auth_environment.jl")
+
 @testset "aliases and errors" begin
-    @test explain_auth("openai_chat"; env = Dict{String,String}()).provider == "openai-chat"
+    @test explain_auth("openai_chat"; env=Dict{String,String}()).provider == "openai-chat"
     error_text = try
         explain_auth("not-a-provider")
         ""
@@ -48,7 +56,7 @@ end
 end
 
 @testset "gemini env key order: first declared wins" begin
-    report = explain_auth("gemini"; env = Dict("GEMINI_API_KEY" => "a", "GOOGLE_API_KEY" => "b"))
+    report = explain_auth("gemini"; env=Dict("GEMINI_API_KEY" => "a", "GOOGLE_API_KEY" => "b"))
     @test selected_step(report).kind == "env:GEMINI_API_KEY"
     @test report.steps[3].kind == "env:GOOGLE_API_KEY"
     @test report.steps[3].state === :shadowed
@@ -58,10 +66,15 @@ end
     dir = mktempdir()
     path = joinpath(dir, "auth.json")
     fresh = fake_codex_jwt("acct_test", round(Int, time()) + 3600)
-    write(path, JSON.serialize(Dict(
-        "auth_mode" => "chatgpt",
-        "tokens" => Dict("access_token" => fresh, "refresh_token" => "rt"),
-    )))
+    write(
+        path,
+        JSON.serialize(
+            Dict(
+                "auth_mode" => "chatgpt",
+                "tokens" => Dict("access_token" => fresh, "refresh_token" => "rt"),
+            ),
+        ),
+    )
     credential = read_codex_cli_credential(path)
     @test !is_expired(credential)
     @test account_id(credential) == "acct_test"
@@ -89,11 +102,18 @@ end
 @testset "credential renderings never contain token material (AUTH-5)" begin
     dir = mktempdir()
     path = joinpath(dir, "credentials.json")
-    write(path, JSON.serialize(Dict("claudeAiOauth" => Dict(
-        "accessToken" => SENTINEL,
-        "refreshToken" => SENTINEL,
-        "expiresAt" => round(Int64, time() * 1000) + 60_000,
-    ))))
+    write(
+        path,
+        JSON.serialize(
+            Dict(
+                "claudeAiOauth" => Dict(
+                    "accessToken" => SENTINEL,
+                    "refreshToken" => SENTINEL,
+                    "expiresAt" => round(Int64, time() * 1000) + 60_000,
+                ),
+            ),
+        ),
+    )
     credential = read_claude_code_credential(path)
     @test !occursin(SENTINEL, sprint(show, credential))
     @test !occursin(SENTINEL, sprint(show, MIME("text/plain"), credential))
@@ -102,7 +122,7 @@ end
 
 # ─── contract fixture runner ─────────────────────────────────────────
 
-function materialize_borrowed_file(state, sentinel)
+function materialize_borrowed_file(provider, state, sentinel)
     dir = mktempdir()
     state == "missing" && return joinpath(dir, "does-not-exist.json")
     oauth = Dict{String,Any}("accessToken" => sentinel)
@@ -118,29 +138,48 @@ function materialize_borrowed_file(state, sentinel)
         error("unknown borrowed_file state $state")
     end
     path = joinpath(dir, "credentials.json")
-    write(path, JSON.serialize(Dict("claudeAiOauth" => oauth)))
+    payload = if provider == "claude-code"
+        Dict("claudeAiOauth" => oauth)
+    elseif provider == "xai"
+        entry = Dict{String,Any}("type" => "oauth", "access" => oauth["accessToken"])
+        haskey(oauth, "refreshToken") && (entry["refresh"] = oauth["refreshToken"])
+        haskey(oauth, "expiresAt") && (entry["expires"] = oauth["expiresAt"])
+        Dict("xai" => entry)
+    else
+        error("no borrowed-file fixture writer for $provider")
+    end
+    write(path, JSON.serialize(payload))
     return path
 end
 
 @testset "auth resolution contract" begin
-    fixture = JSON.parse(read(joinpath(@__DIR__, "..", "conformance", "auth_resolution.json"), String))
+    contract_root = get(ENV, "LM15_CONTRACT_DIR", joinpath(@__DIR__, "..", "..", "lm15-contract"))
+    corpus = joinpath(contract_root, "auth", "resolution.json")
+    isfile(corpus) || (corpus = joinpath(@__DIR__, "..", "conformance", "auth_resolution.json"))
+    fixture = JSON.parse(read(corpus, String))
     sentinel = fixture["sentinel"]
     cases = fixture["cases"]
     @test !isempty(cases)
 
     for fixture_case in cases
         @testset "$(fixture_case["id"])" begin
-            kwargs = Dict{Symbol,Any}(:env => Dict{String,String}())
+            kwargs = Dict{Symbol,Any}(
+                :env => Dict{String,String}("HOME" => mktempdir()),
+                :files => get(fixture_case, "files", Dict{String,String}()),
+                :settings => get(fixture_case, "settings", Dict{String,String}()),
+            )
             for (key, value) in get(fixture_case, "env", Dict())
                 kwargs[:env][key] = value
             end
             api_key_providers = get(fixture_case, "api_keys_providers", nothing)
-            api_key_providers !== nothing && (kwargs[:api_key_providers] = String.(api_key_providers))
+            api_key_providers !== nothing &&
+                (kwargs[:api_key_providers] = String.(api_key_providers))
             borrowed = get(fixture_case, "borrowed_file", nothing)
             if borrowed !== nothing
-                @test fixture_case["provider"] == "claude-code"
-                kwargs[:claude_credentials_path] =
-                    materialize_borrowed_file(borrowed["state"], sentinel)
+                provider = fixture_case["provider"]
+                path_key =
+                    provider == "claude-code" ? :claude_credentials_path : :xai_credentials_path
+                kwargs[path_key] = materialize_borrowed_file(provider, borrowed["state"], sentinel)
             end
 
             report = explain_auth(fixture_case["provider"]; kwargs...)
@@ -154,7 +193,8 @@ end
             end
 
             # AUTH-5: no rendering may carry the planted sentinel.
-            for rendering in (describe(report), sprint(show, report), sprint(show, MIME("text/plain"), report))
+            for rendering in
+                (describe(report), sprint(show, report), sprint(show, MIME("text/plain"), report))
                 @test !occursin(sentinel, rendering)
             end
         end

@@ -1,0 +1,246 @@
+{
+  "direction": "files",
+  "shim": "julia",
+  "command": [
+    "/home/maxime/.local/bin/julia",
+    "--startup-file=no",
+    "--history-file=no",
+    "--project=.",
+    "bin/vet.jl"
+  ],
+  "sandboxed": true,
+  "capabilities": {
+    "language": "julia",
+    "ops": [
+      "batch_op_build",
+      "batch_op_parse",
+      "build_models_request",
+      "build_request",
+      "cache_op_build",
+      "cache_op_parse",
+      "capabilities",
+      "explain_auth",
+      "file_op_build",
+      "file_op_parse",
+      "generation_build",
+      "generation_parse",
+      "ingest_openai_chat",
+      "normalize_error",
+      "parse_models_response",
+      "parse_response",
+      "replay_live",
+      "replay_stream",
+      "resolve_model",
+      "serde_roundtrip",
+      "sigv4_sign",
+      "surface_dump",
+      "token_exchange_build",
+      "token_exchange_parse",
+      "validate",
+      "video_op_build",
+      "video_op_parse"
+    ],
+    "impl_version": "0.3.0-dev"
+  },
+  "generated": "2026-09-13T11:46:18+00:00",
+  "summary": {
+    "pass": 48,
+    "fail": 0,
+    "skip": 0
+  },
+  "total": 48,
+  "results": [
+    {
+      "id": "anthropic.files[upload]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[upload.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[get]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[get.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[list]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[list.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files[download]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files_id_escaping[get]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files_id_escaping[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.files_id_escaping[download]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[upload]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[upload.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[get]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[get.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[list]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[list.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[download]",
+      "status": "pass"
+    },
+    {
+      "id": "azure.files[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[upload]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[upload.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[get]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[get.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[list]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[list.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files_id_escaping[get]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files_id_escaping[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.files_id_escaping[download]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[upload]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[upload.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[get]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[get.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[list]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[list.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[download]",
+      "status": "pass"
+    },
+    {
+      "id": "meta.files[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[upload]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[upload.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[get]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[get.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[list]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[list.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files[download]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files_id_escaping[get]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files_id_escaping[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.files_id_escaping[download]",
+      "status": "pass"
+    }
+  ]
+}

@@ -1,0 +1,1267 @@
+{
+  "direction": "response",
+  "shim": "julia",
+  "command": [
+    "/home/maxime/.local/bin/julia",
+    "--startup-file=no",
+    "--history-file=no",
+    "--project=.",
+    "bin/vet.jl"
+  ],
+  "sandboxed": true,
+  "capabilities": {
+    "language": "julia",
+    "ops": [
+      "batch_op_build",
+      "batch_op_parse",
+      "build_models_request",
+      "build_request",
+      "cache_op_build",
+      "cache_op_parse",
+      "capabilities",
+      "explain_auth",
+      "file_op_build",
+      "file_op_parse",
+      "generation_build",
+      "generation_parse",
+      "ingest_openai_chat",
+      "normalize_error",
+      "parse_models_response",
+      "parse_response",
+      "replay_live",
+      "replay_stream",
+      "resolve_model",
+      "serde_roundtrip",
+      "sigv4_sign",
+      "surface_dump",
+      "token_exchange_build",
+      "token_exchange_parse",
+      "validate",
+      "video_op_build",
+      "video_op_parse"
+    ],
+    "impl_version": "0.3.0-dev"
+  },
+  "generated": "2026-09-13T11:45:18+00:00",
+  "summary": {
+    "pass": 302,
+    "fail": 0,
+    "skip": 1
+  },
+  "total": 303,
+  "results": [
+    {
+      "id": "anthropic.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.cache_control",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.cache_history",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.container",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.image_base64",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.image_url",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.inference_geo",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.max_tokens",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.metadata",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.multi_turn",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.output_config",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.pdf_base64",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.reasoning_adaptive",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.reasoning_budget",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.service_tier",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.stop_sequences",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.system_content_blocks",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.temperature",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.thinking",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.thinking_budget",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_call_unnamed_complete",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_choice_any",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_choice_auto",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_choice_builtin",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_choice_none",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_choice_specific",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_result_error",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_result_pdf",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.tools",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.top_k",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.top_p",
+      "status": "pass"
+    },
+    {
+      "id": "anthropic.web_search",
+      "status": "pass"
+    },
+    {
+      "id": "azure.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "azure.content_filter_completion",
+      "status": "pass"
+    },
+    {
+      "id": "azure.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "azure.prompt_cache_key",
+      "status": "pass"
+    },
+    {
+      "id": "azure.reasoning_high",
+      "status": "pass"
+    },
+    {
+      "id": "azure.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "azure.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "azure.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "azure.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "azure.tools",
+      "status": "pass"
+    },
+    {
+      "id": "azure.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.content_filter_completion",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.prompt_cache_key",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.reasoning_high",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.tools",
+      "status": "pass"
+    },
+    {
+      "id": "azure-chat.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.bearer_basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.tools",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-chat.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.tools",
+      "status": "pass"
+    },
+    {
+      "id": "bedrock-mantle-chat.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "claude-code.tool_result_error",
+      "status": "pass"
+    },
+    {
+      "id": "claude-code.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "claude-code.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "claude-code.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "claude-code.tool_result_pdf",
+      "status": "pass"
+    },
+    {
+      "id": "claude-code.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.response_format_json_object",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.tools",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.tool_result_error",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.tools",
+      "status": "pass"
+    },
+    {
+      "id": "deepseek-anthropic.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.audio_inline",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache_history_fallback",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache_resource",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.code_execution",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.google_search",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.image_file_uri",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.image_inline",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.max_output_tokens",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.multi_turn",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.multi_turn_function_response",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.pdf_inline",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.response_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.response_mime_type",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.response_schema",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.safety_settings",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.service_tier",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.stop_sequences",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.store",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.temperature",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.thinking",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.thinking_level",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_call_unnamed_complete",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_config_any",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_config_auto",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_config_none",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_result_error",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_result_pdf",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.tools",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.top_k",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.top_p",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video_file",
+      "status": "pass"
+    },
+    {
+      "id": "meta.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "meta.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "meta.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "meta.reasoning_summary",
+      "status": "pass"
+    },
+    {
+      "id": "meta.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "meta.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "meta.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "meta.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "meta.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "meta.tool_result_pdf",
+      "status": "pass"
+    },
+    {
+      "id": "meta.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "meta.tools",
+      "status": "pass"
+    },
+    {
+      "id": "meta.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_result_error",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_result_pdf",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.tools",
+      "status": "pass"
+    },
+    {
+      "id": "meta-anthropic.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.tools",
+      "status": "pass"
+    },
+    {
+      "id": "meta-chat.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.k26_basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.k26_reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.response_format_json_object",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.tools",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tool_result_error",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.tools",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-anthropic.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.response_format_json_schema",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.tools",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.user_id",
+      "status": "pass"
+    },
+    {
+      "id": "moonshotai-responses.web_search",
+      "status": "pass"
+    },
+    {
+      "id": "openai.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "openai.cache_off",
+      "status": "pass"
+    },
+    {
+      "id": "openai.cache_stable",
+      "status": "pass"
+    },
+    {
+      "id": "openai.code_interpreter",
+      "status": "pass"
+    },
+    {
+      "id": "openai.computer_use",
+      "status": "skip",
+      "reason": "no-golden"
+    },
+    {
+      "id": "openai.context_management",
+      "status": "pass"
+    },
+    {
+      "id": "openai.conversation",
+      "status": "pass"
+    },
+    {
+      "id": "openai.file_input",
+      "status": "pass"
+    },
+    {
+      "id": "openai.file_search",
+      "status": "pass"
+    },
+    {
+      "id": "openai.image_file",
+      "status": "pass"
+    },
+    {
+      "id": "openai.image_url",
+      "status": "pass"
+    },
+    {
+      "id": "openai.include",
+      "status": "pass"
+    },
+    {
+      "id": "openai.max_tool_calls",
+      "status": "pass"
+    },
+    {
+      "id": "openai.metadata",
+      "status": "pass"
+    },
+    {
+      "id": "openai.multi_turn",
+      "status": "pass"
+    },
+    {
+      "id": "openai.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "openai.parallel_tool_calls",
+      "status": "pass"
+    },
+    {
+      "id": "openai.previous_response_id",
+      "status": "pass"
+    },
+    {
+      "id": "openai.prompt",
+      "status": "pass"
+    },
+    {
+      "id": "openai.prompt_cache_breakpoint",
+      "status": "pass"
+    },
+    {
+      "id": "openai.prompt_cache_key",
+      "status": "pass"
+    },
+    {
+      "id": "openai.prompt_cache_retention",
+      "status": "pass"
+    },
+    {
+      "id": "openai.reasoning",
+      "status": "pass"
+    },
+    {
+      "id": "openai.reasoning_encrypted",
+      "status": "pass"
+    },
+    {
+      "id": "openai.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "openai.reasoning_replay",
+      "status": "pass"
+    },
+    {
+      "id": "openai.safety_identifier",
+      "status": "pass"
+    },
+    {
+      "id": "openai.service_tier",
+      "status": "pass"
+    },
+    {
+      "id": "openai.store",
+      "status": "pass"
+    },
+    {
+      "id": "openai.structured_output",
+      "status": "pass"
+    },
+    {
+      "id": "openai.structured_output_json_object",
+      "status": "pass"
+    },
+    {
+      "id": "openai.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "openai.temperature",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_call_unnamed_complete",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_choice_allowed",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_choice_auto",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_choice_builtin",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_choice_none",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_choice_specific",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_result_pdf",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "openai.tools",
+      "status": "pass"
+    },
+    {
+      "id": "openai.top_logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "openai.top_p",
+      "status": "pass"
+    },
+    {
+      "id": "openai.truncation",
+      "status": "pass"
+    },
+    {
+      "id": "openai.user",
+      "status": "pass"
+    },
+    {
+      "id": "openai.web_search",
+      "status": "pass"
+    },
+    {
+      "id": "openai-chat.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.basic_text_sglang",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.basic_text_vllm",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.cache_off",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.cache_stable",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.logprobs",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.max_tokens",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.multi_turn",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.prompt_cache_breakpoint",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.reasoning_off",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.response_format_json_object",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.structured_output",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.temperature",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.tool_call_unnamed_complete",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.tool_choice_auto",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.tool_choice_required",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.tools",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.tools_sglang",
+      "status": "pass"
+    },
+    {
+      "id": "openai_chat.tools_vllm",
+      "status": "pass"
+    },
+    {
+      "id": "xai.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "xai.structured_output",
+      "status": "pass"
+    },
+    {
+      "id": "xai.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "xai.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "xai.tool_result_pair",
+      "status": "pass"
+    },
+    {
+      "id": "xai.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "xai.tools",
+      "status": "pass"
+    },
+    {
+      "id": "zai.basic_text",
+      "status": "pass"
+    },
+    {
+      "id": "zai.multi_turn_tool_result",
+      "status": "pass"
+    },
+    {
+      "id": "zai.reasoning_low",
+      "status": "pass"
+    },
+    {
+      "id": "zai.response_format_json_object",
+      "status": "pass"
+    },
+    {
+      "id": "zai.system_prompt",
+      "status": "pass"
+    },
+    {
+      "id": "zai.tool_result_image",
+      "status": "pass"
+    },
+    {
+      "id": "zai.tool_result_mixed",
+      "status": "pass"
+    },
+    {
+      "id": "zai.tool_result_text",
+      "status": "pass"
+    },
+    {
+      "id": "zai.tools",
+      "status": "pass"
+    },
+    {
+      "id": "zai.user_id",
+      "status": "pass"
+    }
+  ]
+}

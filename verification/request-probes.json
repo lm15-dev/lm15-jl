@@ -1,0 +1,295 @@
+{
+  "contract": "cfed00771dffef2a218b5549151950bf5060ca06",
+  "identical": 38,
+  "differences": [
+    {
+      "id": "openai.assistant-media",
+      "request": {
+        "model": "m",
+        "messages": [
+          {
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Here is the image"
+              },
+              {
+                "type": "image",
+                "media_type": "image/png",
+                "url": "https://example.org/image.png"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Describe it again"
+              }
+            ]
+          }
+        ]
+      },
+      "difference": {
+        "path": "$.ok",
+        "expected": true,
+        "actual": false,
+        "note": "value mismatch"
+      },
+      "reference": {
+        "id": "build_request#37",
+        "ok": true,
+        "result": {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/responses",
+          "params": {},
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer probe-only"
+          },
+          "body": {
+            "model": "m",
+            "input": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "output_text",
+                    "text": "Here is the image"
+                  }
+                ]
+              },
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "input_text",
+                    "text": "Describe it again"
+                  }
+                ]
+              }
+            ],
+            "stream": false
+          }
+        }
+      },
+      "julia": {
+        "id": "build_request#37",
+        "ok": false,
+        "error": {
+          "type": "UnsupportedFeatureError",
+          "message": "UnsupportedFeatureError: assistant image replay cannot be carried by this provider (openai)",
+          "code": "unsupported_feature"
+        }
+      }
+    },
+    {
+      "id": "openai-chat.assistant-media",
+      "request": {
+        "model": "m",
+        "messages": [
+          {
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Here is the image"
+              },
+              {
+                "type": "image",
+                "media_type": "image/png",
+                "url": "https://example.org/image.png"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Describe it again"
+              }
+            ]
+          }
+        ]
+      },
+      "difference": {
+        "path": "$.ok",
+        "expected": true,
+        "actual": false,
+        "note": "value mismatch"
+      },
+      "reference": {
+        "id": "build_request#38",
+        "ok": true,
+        "result": {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "params": {},
+          "headers": {
+            "content-type": "application/json",
+            "authorization": "Bearer probe-only"
+          },
+          "body": {
+            "model": "m",
+            "messages": [
+              {
+                "role": "assistant",
+                "content": "Here is the image"
+              },
+              {
+                "role": "user",
+                "content": "Describe it again"
+              }
+            ]
+          }
+        }
+      },
+      "julia": {
+        "id": "build_request#38",
+        "ok": false,
+        "error": {
+          "type": "UnsupportedFeatureError",
+          "message": "UnsupportedFeatureError: assistant image replay cannot be carried by this provider (openai-chat)",
+          "code": "unsupported_feature"
+        }
+      }
+    },
+    {
+      "id": "meta-anthropic.stored-cache",
+      "request": {
+        "model": "muse-spark",
+        "messages": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Suffix"
+              }
+            ]
+          }
+        ],
+        "config": {
+          "cache": {
+            "resource": "cachedContents/opaque"
+          }
+        }
+      },
+      "difference": {
+        "path": "$.ok",
+        "expected": true,
+        "actual": false,
+        "note": "value mismatch"
+      },
+      "reference": {
+        "id": "build_request#41",
+        "ok": true,
+        "result": {
+          "method": "POST",
+          "url": "https://api.meta.ai/v1/messages",
+          "params": {},
+          "headers": {
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+            "authorization": "Bearer probe-only"
+          },
+          "body": {
+            "model": "muse-spark",
+            "messages": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Suffix"
+                  }
+                ]
+              }
+            ],
+            "stream": false,
+            "max_tokens": 1024
+          }
+        }
+      },
+      "julia": {
+        "id": "build_request#41",
+        "ok": false,
+        "error": {
+          "type": "UnsupportedFeatureError",
+          "message": "UnsupportedFeatureError: stored cache resource cannot be carried by this provider (meta-anthropic)",
+          "code": "unsupported_feature"
+        }
+      }
+    },
+    {
+      "id": "deepseek-anthropic.stored-cache",
+      "request": {
+        "model": "deepseek-v4-flash",
+        "messages": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Suffix"
+              }
+            ]
+          }
+        ],
+        "config": {
+          "cache": {
+            "resource": "cachedContents/opaque"
+          }
+        }
+      },
+      "difference": {
+        "path": "$.ok",
+        "expected": true,
+        "actual": false,
+        "note": "value mismatch"
+      },
+      "reference": {
+        "id": "build_request#42",
+        "ok": true,
+        "result": {
+          "method": "POST",
+          "url": "https://api.deepseek.com/anthropic/v1/messages",
+          "params": {},
+          "headers": {
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+            "x-api-key": "probe-only"
+          },
+          "body": {
+            "model": "deepseek-v4-flash",
+            "messages": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Suffix"
+                  }
+                ]
+              }
+            ],
+            "stream": false,
+            "max_tokens": 1024
+          }
+        }
+      },
+      "julia": {
+        "id": "build_request#42",
+        "ok": false,
+        "error": {
+          "type": "UnsupportedFeatureError",
+          "message": "UnsupportedFeatureError: stored cache resource cannot be carried by this provider (deepseek-anthropic)",
+          "code": "unsupported_feature"
+        }
+      }
+    }
+  ]
+}

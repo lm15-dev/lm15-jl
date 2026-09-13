@@ -1,0 +1,5 @@
+# Developer-only environments and generated artifacts.
+/tools/format/Manifest.toml
+/examples/scientific/Manifest.toml
+*.cov
+*.mem

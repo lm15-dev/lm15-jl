@@ -1,0 +1,40 @@
+{
+  "source_sha256": "9ff9462d5fdd6e934d9297e9de8d5be331b0f1e0e3348cd6ca429918cacf1730",
+  "source_digest_recipe": "sha256(relative POSIX path + NUL + bytes + NUL), sorted src/ext/test files plus root Project.toml and examples/scientific/{Project.toml,runtests.jl}",
+  "contract_pin": "cfed00771dffef2a218b5549151950bf5060ca06",
+  "platform": "Linux-6.18.49-x86_64-with-glibc2.42",
+  "julia": "1.12.5",
+  "unit": {
+    "pass": 874,
+    "test_sets": 34
+  },
+  "scientific": {
+    "pass": 48,
+    "test_sets": 4
+  },
+  "contract": {
+    "pass": 1380,
+    "fail": 0,
+    "skip": 2
+  },
+  "scientific_packages": {
+    "DataFrames": "1.8.2",
+    "Tables": "1.14.0",
+    "Unitful": "1.29.0",
+    "SciMLBase": "3.54.0",
+    "OrdinaryDiffEqTsit5": "2.1.4"
+  },
+  "live_provider_calls": false,
+  "network_isolated_tests": true,
+  "real_credential_stores_used": false,
+  "not_verified": [
+    "Julia 1.10",
+    "macOS",
+    "Windows",
+    "live provider acceptance of generated schemas"
+  ],
+  "contract_skips": [
+    "openai.computer_use: missing canonical request",
+    "openai.computer_use: missing response golden"
+  ]
+}

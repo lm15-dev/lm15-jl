@@ -1,0 +1,162 @@
+{
+  "direction": "video",
+  "shim": "julia",
+  "command": [
+    "/home/maxime/.local/bin/julia",
+    "--startup-file=no",
+    "--history-file=no",
+    "--project=.",
+    "bin/vet.jl"
+  ],
+  "sandboxed": true,
+  "capabilities": {
+    "language": "julia",
+    "ops": [
+      "batch_op_build",
+      "batch_op_parse",
+      "build_models_request",
+      "build_request",
+      "cache_op_build",
+      "cache_op_parse",
+      "capabilities",
+      "explain_auth",
+      "file_op_build",
+      "file_op_parse",
+      "generation_build",
+      "generation_parse",
+      "ingest_openai_chat",
+      "normalize_error",
+      "parse_models_response",
+      "parse_response",
+      "replay_live",
+      "replay_stream",
+      "resolve_model",
+      "serde_roundtrip",
+      "sigv4_sign",
+      "surface_dump",
+      "token_exchange_build",
+      "token_exchange_parse",
+      "validate",
+      "video_op_build",
+      "video_op_parse"
+    ],
+    "impl_version": "0.3.0-dev"
+  },
+  "generated": "2026-09-13T11:46:30+00:00",
+  "summary": {
+    "pass": 27,
+    "fail": 0,
+    "skip": 0
+  },
+  "total": 27,
+  "results": [
+    {
+      "id": "gemini.video[submit]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[submit.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[running]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[running.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[done]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[done.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[part]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[part.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video[list]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.video_id_escaping[status]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[submit]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[submit.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[running]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[running.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[done]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[done.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[part]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[part.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video[list]",
+      "status": "pass"
+    },
+    {
+      "id": "openai.video_id_escaping[status]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video[submit]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video[submit.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video[done]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video[done.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video[part]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video[part.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "xai.video_id_escaping[status]",
+      "status": "pass"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+Test Summary:                   | Pass  Total   Time
+DataFrames and Tables workflows |   14     14  13.1s
+Test Summary:                      | Pass  Total  Time
+Unitful: values retain their units |   16     16  4.6s
+Test Summary:                                          | Pass  Total   Time
+SciML: real differential-equation solve through a tool |   16     16  13.2s
+Test Summary:      | Pass  Total  Time
+extension dispatch |    2      2  4.6s

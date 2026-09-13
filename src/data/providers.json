@@ -1,0 +1,967 @@
+[
+  {
+    "id": "openai",
+    "dialect": "openai-responses",
+    "access": {
+      "provider": "openai",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "live": true,
+        "files": true,
+        "batches": true,
+        "images": true,
+        "speech": true,
+        "video": true,
+        "responses_api": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "OPENAI_API_KEY"
+      ],
+      "enterprise_variants": [
+        "azure-openai"
+      ]
+    },
+    "console_url": "https://platform.openai.com/api-keys",
+    "note": "OpenAI Responses API"
+  },
+  {
+    "id": "openai-chat",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "openai-chat",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "OPENAI_API_KEY"
+      ]
+    },
+    "console_url": "https://platform.openai.com/api-keys",
+    "note": "OpenAI Chat Completions dialect (the de-facto standard other servers speak)"
+  },
+  {
+    "id": "anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "files": true,
+        "batches": true,
+        "models": true
+      },
+      "auth_modes": [
+        "x-api-key"
+      ],
+      "env_keys": [
+        "ANTHROPIC_API_KEY"
+      ],
+      "auth_scheme": [
+        "x-api-key"
+      ]
+    },
+    "console_url": "https://console.anthropic.com",
+    "note": "Anthropic Messages API"
+  },
+  {
+    "id": "gemini",
+    "dialect": "gemini",
+    "access": {
+      "provider": "gemini",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "live": true,
+        "files": true,
+        "batches": true,
+        "images": true,
+        "speech": true,
+        "video": true,
+        "models": true,
+        "caches": true
+      },
+      "auth_modes": [
+        "query-api-key",
+        "x-goog-api-key"
+      ],
+      "env_keys": [
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY"
+      ],
+      "auth_scheme": [
+        "x-api-key"
+      ]
+    },
+    "console_url": "https://aistudio.google.com/apikey",
+    "note": "Google Gemini API"
+  },
+  {
+    "id": "xai",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "xai",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true,
+        "images": true,
+        "video": true
+      },
+      "credential_policy": "oauth-unless-explicit",
+      "auth_modes": [
+        "bearer",
+        "xai-oauth"
+      ],
+      "env_keys": [
+        "XAI_API_KEY"
+      ],
+      "login_hint": "Log in again: run lm15.auth.login_xai() (SuperGrok / X Premium subscription auth)",
+      "base_url": "https://api.x.ai/v1"
+    },
+    "console_url": "https://console.x.ai",
+    "note": "xAI Grok (Chat Completions dialect; XAI_API_KEY or subscription OAuth)",
+    "compat": "xai"
+  },
+  {
+    "id": "claude-code",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "claude-code",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "credential_policy": "oauth",
+      "auth_modes": [
+        "claude-code-oauth",
+        "bearer-oauth"
+      ],
+      "auth_scheme": [
+        "bearer"
+      ],
+      "headers": [
+        [
+          "anthropic-dangerous-direct-browser-access",
+          "true"
+        ],
+        [
+          "anthropic-beta",
+          "claude-code-20250219,oauth-2025-04-20"
+        ],
+        [
+          "x-app",
+          "cli"
+        ],
+        [
+          "user-agent",
+          "claude-cli/2.1.170"
+        ]
+      ],
+      "login_hint": "Log in again: run `claude` and use /login (Claude subscription auth)",
+      "backend": "claude-code",
+      "system_prefix": "You are Claude Code, Anthropic's official CLI for Claude."
+    },
+    "note": "Claude subscription through the local `claude` CLI login"
+  },
+  {
+    "id": "openai-codex",
+    "dialect": "openai-responses",
+    "access": {
+      "provider": "openai-codex",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "credential_policy": "oauth",
+      "auth_modes": [
+        "chatgpt-oauth",
+        "bearer-oauth"
+      ],
+      "headers": [
+        [
+          "OpenAI-Beta",
+          "responses=experimental"
+        ],
+        [
+          "originator",
+          "lm15"
+        ]
+      ],
+      "login_hint": "Log in again: run `codex login` (ChatGPT subscription auth)",
+      "backend": "chatgpt-codex",
+      "backend_options": {
+        "client_version": "0.147.0"
+      },
+      "system_prefix": "You are a helpful assistant.",
+      "base_url": "https://chatgpt.com/backend-api/codex"
+    },
+    "note": "ChatGPT subscription through the local `codex` CLI login"
+  },
+  {
+    "id": "groq",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "groq",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "GROQ_API_KEY"
+      ],
+      "base_url": "https://api.groq.com/openai/v1"
+    },
+    "console_url": "https://console.groq.com/keys",
+    "note": "Groq Cloud (Chat Completions dialect)",
+    "compat": "groq"
+  },
+  {
+    "id": "openrouter",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "openrouter",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "OPENROUTER_API_KEY"
+      ],
+      "base_url": "https://openrouter.ai/api/v1"
+    },
+    "console_url": "https://openrouter.ai/keys",
+    "note": "OpenRouter (Chat Completions dialect)",
+    "compat": "openrouter"
+  },
+  {
+    "id": "deepseek",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "deepseek",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "DEEPSEEK_API_KEY"
+      ],
+      "base_url": "https://api.deepseek.com"
+    },
+    "console_url": "https://platform.deepseek.com/api_keys",
+    "note": "DeepSeek (Chat Completions dialect; thinking mode on by default)",
+    "compat": "deepseek"
+  },
+  {
+    "id": "deepseek-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "deepseek-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "auth_modes": [
+        "x-api-key"
+      ],
+      "env_keys": [
+        "DEEPSEEK_API_KEY"
+      ],
+      "auth_scheme": [
+        "x-api-key"
+      ],
+      "base_url": "https://api.deepseek.com/anthropic/v1"
+    },
+    "compat": "deepseek",
+    "console_url": "https://platform.deepseek.com/api_keys",
+    "note": "DeepSeek over the Anthropic Messages wire (same key as `deepseek`; no model listing)"
+  },
+  {
+    "id": "zai",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "zai",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "ZAI_API_KEY"
+      ],
+      "base_url": "https://api.z.ai/api/paas/v4"
+    },
+    "console_url": "https://z.ai/manage-apikey/apikey-list",
+    "note": "Z.AI GLM (Chat Completions dialect; general endpoint, not the Coding Plan)",
+    "compat": "zai"
+  },
+  {
+    "id": "moonshotai",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "moonshotai",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "MOONSHOTAI_API_KEY",
+        "MOONSHOT_API_KEY"
+      ],
+      "base_url": "https://api.moonshot.ai/v1"
+    },
+    "console_url": "https://platform.kimi.ai/console/api-keys",
+    "note": "Moonshot AI Kimi (Chat Completions dialect; kimi-k3 takes reasoning effort low|high|max, kimi-k2.6 takes effort off; Moonshot's docs call the key MOONSHOT_API_KEY — read after MOONSHOTAI_API_KEY)",
+    "compat": "moonshotai"
+  },
+  {
+    "id": "moonshotai-responses",
+    "dialect": "openai-responses",
+    "access": {
+      "provider": "moonshotai-responses",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "responses_api": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "MOONSHOTAI_API_KEY",
+        "MOONSHOT_API_KEY"
+      ],
+      "base_url": "https://api.moonshot.ai/v1"
+    },
+    "compat": "moonshotai",
+    "console_url": "https://platform.kimi.ai/console/api-keys",
+    "note": "Moonshot AI Kimi over the Responses wire (same key as `moonshotai`; kimi-k3 only; stateless — reasoning replays as summary text; web_search built-in)"
+  },
+  {
+    "id": "moonshotai-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "moonshotai-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "MOONSHOTAI_API_KEY",
+        "MOONSHOT_API_KEY"
+      ],
+      "auth_scheme": [
+        "bearer"
+      ],
+      "base_url": "https://api.moonshot.ai/anthropic/v1"
+    },
+    "compat": "moonshotai",
+    "console_url": "https://platform.kimi.ai/console/api-keys",
+    "note": "Moonshot AI Kimi over the Anthropic Messages wire (same key as `moonshotai`, bearer token; kimi-k3 only)"
+  },
+  {
+    "id": "meta",
+    "dialect": "openai-responses",
+    "access": {
+      "provider": "meta",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "files": true,
+        "images": true,
+        "responses_api": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "META_API_KEY"
+      ],
+      "base_url": "https://api.meta.ai/v1"
+    },
+    "compat": "meta",
+    "console_url": "https://dev.meta.ai/",
+    "note": "Meta Model API — Muse Spark over the Responses wire (reasoning replay, web_search), plus Files, Images (muse-image-1.0) and Models; Meta's docs call the key MODEL_API_KEY — export it as META_API_KEY"
+  },
+  {
+    "id": "meta-chat",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "meta-chat",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "META_API_KEY"
+      ],
+      "base_url": "https://api.meta.ai/v1"
+    },
+    "compat": "meta",
+    "console_url": "https://dev.meta.ai/",
+    "note": "Meta Model API over the Chat Completions wire (same key as `meta`; no cross-turn reasoning)"
+  },
+  {
+    "id": "meta-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "meta-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "env_keys": [
+        "META_API_KEY"
+      ],
+      "auth_scheme": [
+        "bearer"
+      ],
+      "base_url": "https://api.meta.ai/v1"
+    },
+    "compat": "meta",
+    "console_url": "https://dev.meta.ai/",
+    "note": "Meta Model API over the Anthropic Messages wire (same key as `meta`; bearer token)"
+  },
+  {
+    "id": "azure",
+    "dialect": "openai-responses",
+    "access": {
+      "provider": "azure",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "live": true,
+        "files": true,
+        "batches": true,
+        "speech": true,
+        "responses_api": true,
+        "models": true
+      },
+      "credential_policy": "azure-chain",
+      "auth_modes": [
+        "api-key",
+        "entra-oauth"
+      ],
+      "env_keys": [
+        "AZURE_OPENAI_API_KEY"
+      ],
+      "auth_scheme": [
+        "api-key",
+        "bearer"
+      ],
+      "backend": "azure-openai",
+      "host": {
+        "base_url": "https://{resource}.openai.azure.com/openai/v1",
+        "settings": [
+          {
+            "name": "resource",
+            "env": [
+              "AZURE_OPENAI_RESOURCE"
+            ]
+          },
+          {
+            "name": "authority_host",
+            "env": [
+              "AZURE_AUTHORITY_HOST"
+            ],
+            "default": "https://login.microsoftonline.com"
+          },
+          {
+            "name": "scope",
+            "env": [],
+            "default": "https://ai.azure.com/.default"
+          }
+        ]
+      }
+    },
+    "console_url": "https://portal.azure.com/",
+    "note": "Azure OpenAI v1 Responses wire ({resource}.openai.azure.com; model = deployment name; api-key or Entra token)"
+  },
+  {
+    "id": "azure-chat",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "azure-chat",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "credential_policy": "azure-chain",
+      "auth_modes": [
+        "api-key",
+        "entra-oauth"
+      ],
+      "env_keys": [
+        "AZURE_OPENAI_API_KEY"
+      ],
+      "auth_scheme": [
+        "api-key",
+        "bearer"
+      ],
+      "backend": "azure-openai",
+      "host": {
+        "base_url": "https://{resource}.openai.azure.com/openai/v1",
+        "settings": [
+          {
+            "name": "resource",
+            "env": [
+              "AZURE_OPENAI_RESOURCE"
+            ]
+          },
+          {
+            "name": "authority_host",
+            "env": [
+              "AZURE_AUTHORITY_HOST"
+            ],
+            "default": "https://login.microsoftonline.com"
+          },
+          {
+            "name": "scope",
+            "env": [],
+            "default": "https://ai.azure.com/.default"
+          }
+        ]
+      }
+    },
+    "compat": "openai",
+    "console_url": "https://portal.azure.com/",
+    "note": "Azure OpenAI v1 Chat Completions wire (same resource; also Foundry-sold models such as DeepSeek and Grok)"
+  },
+  {
+    "id": "azure-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "azure-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "azure-chain",
+      "auth_modes": [
+        "x-api-key",
+        "entra-oauth"
+      ],
+      "env_keys": [
+        "ANTHROPIC_FOUNDRY_API_KEY"
+      ],
+      "auth_scheme": [
+        "x-api-key",
+        "bearer"
+      ],
+      "backend": "azure-foundry",
+      "host": {
+        "base_url": "https://{resource}.services.ai.azure.com/anthropic/v1",
+        "settings": [
+          {
+            "name": "resource",
+            "env": [
+              "ANTHROPIC_FOUNDRY_RESOURCE"
+            ]
+          },
+          {
+            "name": "authority_host",
+            "env": [
+              "AZURE_AUTHORITY_HOST"
+            ],
+            "default": "https://login.microsoftonline.com"
+          },
+          {
+            "name": "scope",
+            "env": [],
+            "default": "https://ai.azure.com/.default"
+          }
+        ]
+      }
+    },
+    "console_url": "https://ai.azure.com/",
+    "note": "Claude in Microsoft Foundry ({resource}.services.ai.azure.com/anthropic; api-key, x-api-key or Entra token)"
+  },
+  {
+    "id": "aws-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "aws-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "aws-chain",
+      "auth_modes": [
+        "sigv4",
+        "x-api-key"
+      ],
+      "env_keys": [
+        "ANTHROPIC_AWS_API_KEY"
+      ],
+      "auth_scheme": [
+        "sigv4",
+        "x-api-key"
+      ],
+      "backend": "aws-external-anthropic",
+      "host": {
+        "base_url": "https://aws-external-anthropic.{region}.api.aws/v1",
+        "settings": [
+          {
+            "name": "region",
+            "env": [
+              "AWS_REGION",
+              "AWS_DEFAULT_REGION"
+            ]
+          },
+          {
+            "name": "workspace",
+            "env": [
+              "ANTHROPIC_AWS_WORKSPACE_ID"
+            ]
+          }
+        ],
+        "required_headers": [
+          [
+            "anthropic-workspace-id",
+            "workspace"
+          ]
+        ],
+        "sigv4_service": "aws-external-anthropic"
+      }
+    },
+    "console_url": "https://console.aws.amazon.com/",
+    "note": "Claude Platform on AWS (Anthropic-operated; SigV4 or ANTHROPIC_AWS_API_KEY; needs AWS_REGION and ANTHROPIC_AWS_WORKSPACE_ID)"
+  },
+  {
+    "id": "bedrock-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "bedrock-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "aws-chain",
+      "auth_modes": [
+        "sigv4",
+        "x-api-key"
+      ],
+      "env_keys": [
+        "AWS_BEARER_TOKEN_BEDROCK"
+      ],
+      "auth_scheme": [
+        "sigv4",
+        "x-api-key"
+      ],
+      "backend": "bedrock-mantle",
+      "host": {
+        "base_url": "https://bedrock-mantle.{region}.api.aws/anthropic/v1",
+        "settings": [
+          {
+            "name": "region",
+            "env": [
+              "AWS_REGION",
+              "AWS_DEFAULT_REGION"
+            ]
+          }
+        ],
+        "sigv4_service": "bedrock-mantle"
+      }
+    },
+    "console_url": "https://console.aws.amazon.com/bedrock/",
+    "note": "Claude in Amazon Bedrock (bedrock-mantle, Opus 4.7 and later; SigV4 or AWS_BEARER_TOKEN_BEDROCK; needs AWS_REGION)"
+  },
+  {
+    "id": "bedrock-chat",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "bedrock-chat",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "aws-chain",
+      "auth_modes": [
+        "sigv4",
+        "bearer"
+      ],
+      "env_keys": [
+        "AWS_BEARER_TOKEN_BEDROCK"
+      ],
+      "auth_scheme": [
+        "sigv4",
+        "bearer"
+      ],
+      "backend": "bedrock-runtime",
+      "host": {
+        "base_url": "https://bedrock-runtime.{region}.amazonaws.com/openai/v1",
+        "settings": [
+          {
+            "name": "region",
+            "env": [
+              "AWS_REGION",
+              "AWS_DEFAULT_REGION"
+            ]
+          }
+        ],
+        "sigv4_service": "bedrock"
+      }
+    },
+    "compat": "bedrock",
+    "console_url": "https://console.aws.amazon.com/bedrock/",
+    "note": "Amazon Bedrock over the OpenAI Chat Completions wire (bedrock-runtime /openai/v1; SigV4 or AWS_BEARER_TOKEN_BEDROCK)"
+  },
+  {
+    "id": "bedrock-mantle-chat",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "bedrock-mantle-chat",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "credential_policy": "aws-chain",
+      "auth_modes": [
+        "sigv4",
+        "bearer"
+      ],
+      "env_keys": [
+        "AWS_BEARER_TOKEN_BEDROCK"
+      ],
+      "auth_scheme": [
+        "sigv4",
+        "bearer"
+      ],
+      "backend": "bedrock-mantle",
+      "host": {
+        "base_url": "https://bedrock-mantle.{region}.api.aws/v1",
+        "settings": [
+          {
+            "name": "region",
+            "env": [
+              "AWS_REGION",
+              "AWS_DEFAULT_REGION"
+            ]
+          }
+        ],
+        "sigv4_service": "bedrock-mantle"
+      }
+    },
+    "compat": "bedrock-mantle",
+    "console_url": "https://console.aws.amazon.com/bedrock/",
+    "note": "Amazon Bedrock Chat Completions on bedrock-mantle (un-versioned ids, GET /v1/models; SigV4 or AWS_BEARER_TOKEN_BEDROCK)"
+  },
+  {
+    "id": "vertex",
+    "dialect": "gemini",
+    "access": {
+      "provider": "vertex",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "gcp-chain",
+      "auth_modes": [
+        "google-oauth"
+      ],
+      "env_keys": [],
+      "auth_scheme": [
+        "bearer"
+      ],
+      "backend": "vertex",
+      "host": {
+        "base_url": "https://{location_host}/v1/projects/{project}/locations/{location}/publishers/google",
+        "settings": [
+          {
+            "name": "project",
+            "env": [
+              "GOOGLE_CLOUD_PROJECT",
+              "GCLOUD_PROJECT"
+            ]
+          },
+          {
+            "name": "location",
+            "env": [
+              "GOOGLE_CLOUD_LOCATION"
+            ],
+            "default": "global"
+          }
+        ]
+      }
+    },
+    "console_url": "https://console.cloud.google.com/vertex-ai",
+    "note": "Gemini on Google Cloud (Agent Platform); ADC chain; needs GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION defaults to global"
+  },
+  {
+    "id": "vertex-express",
+    "dialect": "gemini",
+    "access": {
+      "provider": "vertex-express",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "key",
+      "auth_modes": [
+        "query-api-key"
+      ],
+      "env_keys": [
+        "GOOGLE_API_KEY"
+      ],
+      "auth_scheme": [
+        "query-key"
+      ],
+      "backend": "vertex-express",
+      "host": {
+        "base_url": "https://aiplatform.googleapis.com/v1/publishers/google"
+      }
+    },
+    "console_url": "https://console.cloud.google.com/vertex-ai/studio",
+    "note": "Agent Platform express mode: GOOGLE_API_KEY as ?key=, no project or location"
+  },
+  {
+    "id": "vertex-anthropic",
+    "dialect": "anthropic",
+    "access": {
+      "provider": "vertex-anthropic",
+      "supports": {
+        "complete": true,
+        "stream": true
+      },
+      "credential_policy": "gcp-chain",
+      "auth_modes": [
+        "google-oauth"
+      ],
+      "env_keys": [],
+      "auth_scheme": [
+        "bearer"
+      ],
+      "backend": "vertex",
+      "host": {
+        "base_url": "https://{location_host}/v1/projects/{project}/locations/{location}",
+        "settings": [
+          {
+            "name": "project",
+            "env": [
+              "GOOGLE_CLOUD_PROJECT",
+              "GCLOUD_PROJECT"
+            ]
+          },
+          {
+            "name": "location",
+            "env": [
+              "GOOGLE_CLOUD_LOCATION"
+            ],
+            "default": "global"
+          }
+        ],
+        "paths": {
+          "messages": "/publishers/anthropic/models/{model}:rawPredict",
+          "messages/stream": "/publishers/anthropic/models/{model}:streamRawPredict"
+        },
+        "model_in": "path",
+        "anthropic_version_in": "body:vertex-2023-10-16"
+      }
+    },
+    "console_url": "https://console.cloud.google.com/vertex-ai/model-garden",
+    "note": "Claude on Google Cloud (rawPredict; model in the path, anthropic_version in the body)"
+  },
+  {
+    "id": "ollama",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "ollama",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "base_url": "http://localhost:11434/v1"
+    },
+    "placeholder_key": "ollama",
+    "note": "local ollama server (keyless)",
+    "compat": "ollama"
+  },
+  {
+    "id": "vllm",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "vllm",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "base_url": "http://localhost:8000/v1"
+    },
+    "placeholder_key": "EMPTY",
+    "note": "local vLLM server (keyless)",
+    "compat": "vllm"
+  },
+  {
+    "id": "sglang",
+    "dialect": "openai-chat",
+    "access": {
+      "provider": "sglang",
+      "supports": {
+        "complete": true,
+        "stream": true,
+        "models": true
+      },
+      "auth_modes": [
+        "bearer"
+      ],
+      "base_url": "http://localhost:30000/v1"
+    },
+    "placeholder_key": "EMPTY",
+    "note": "local SGLang server (keyless)",
+    "compat": "sglang"
+  }
+]

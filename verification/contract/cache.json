@@ -1,0 +1,98 @@
+{
+  "direction": "cache",
+  "shim": "julia",
+  "command": [
+    "/home/maxime/.local/bin/julia",
+    "--startup-file=no",
+    "--history-file=no",
+    "--project=.",
+    "bin/vet.jl"
+  ],
+  "sandboxed": true,
+  "capabilities": {
+    "language": "julia",
+    "ops": [
+      "batch_op_build",
+      "batch_op_parse",
+      "build_models_request",
+      "build_request",
+      "cache_op_build",
+      "cache_op_parse",
+      "capabilities",
+      "explain_auth",
+      "file_op_build",
+      "file_op_parse",
+      "generation_build",
+      "generation_parse",
+      "ingest_openai_chat",
+      "normalize_error",
+      "parse_models_response",
+      "parse_response",
+      "replay_live",
+      "replay_stream",
+      "resolve_model",
+      "serde_roundtrip",
+      "sigv4_sign",
+      "surface_dump",
+      "token_exchange_build",
+      "token_exchange_parse",
+      "validate",
+      "video_op_build",
+      "video_op_parse"
+    ],
+    "impl_version": "0.3.0-dev"
+  },
+  "generated": "2026-09-13T10:59:42+00:00",
+  "summary": {
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  "total": 11,
+  "results": [
+    {
+      "id": "gemini.cache[create]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[create.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[get]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[get.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[update]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[update.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[list]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[list.parse]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache[delete]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache_id_escaping[get]",
+      "status": "pass"
+    },
+    {
+      "id": "gemini.cache_id_escaping[delete]",
+      "status": "pass"
+    }
+  ]
+}

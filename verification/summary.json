@@ -1,0 +1,44 @@
+{
+  "contract_pin": "cfed00771dffef2a218b5549151950bf5060ca06",
+  "source_sha256": "1238ff4d5f5c5694234baa0e11c68aaf10edbc99038663c5463f306442c7bcdc",
+  "platform": "Linux-6.18.49-x86_64-with-glibc2.42",
+  "julia": "julia version 1.12.5",
+  "unit_assertions_passed": 725,
+  "unit_testsets": 25,
+  "contract": {
+    "auth": {"pass": 43, "fail": 0, "skip": 0},
+    "batch": {"pass": 41, "fail": 0, "skip": 0},
+    "cache": {"pass": 11, "fail": 0, "skip": 0},
+    "error": {"pass": 84, "fail": 0, "skip": 0},
+    "files": {"pass": 48, "fail": 0, "skip": 0},
+    "generation": {"pass": 20, "fail": 0, "skip": 0},
+    "ingest": {"pass": 160, "fail": 0, "skip": 0},
+    "live": {"pass": 24, "fail": 0, "skip": 0},
+    "models": {"pass": 34, "fail": 0, "skip": 0},
+    "request": {"pass": 366, "fail": 0, "skip": 1},
+    "response": {"pass": 302, "fail": 0, "skip": 1},
+    "router": {"pass": 22, "fail": 0, "skip": 0},
+    "serde": {"pass": 115, "fail": 0, "skip": 0},
+    "stream": {"pass": 40, "fail": 0, "skip": 0},
+    "token": {"pass": 43, "fail": 0, "skip": 0},
+    "video": {"pass": 27, "fail": 0, "skip": 0}
+  },
+  "contract_total": {"pass": 1380, "fail": 0, "skip": 2},
+  "contract_skips": [
+    {"direction": "request", "id": "openai.computer_use", "status": "skip", "reason": "no canonical_request attached"},
+    {"direction": "response", "id": "openai.computer_use", "status": "skip", "reason": "no-golden"}
+  ],
+  "additional_requests": {
+    "identical": 38,
+    "reference_differences": [
+      "openai.assistant-media",
+      "openai-chat.assistant-media",
+      "meta-anthropic.stored-cache",
+      "deepseek-anthropic.stored-cache"
+    ]
+  },
+  "live_provider_calls": false,
+  "real_credential_stores_used": false,
+  "platforms_not_executed": ["macOS", "Windows", "Julia 1.10"],
+  "source_digest_recipe": "sha256(path + NUL + bytes + NUL), sorted src files followed by Project.toml"
+}
