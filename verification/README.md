@@ -1,6 +1,10 @@
 # Verification record
 
-**Latest:** [function tools and scientific integrations](function-tools/README.md)
+The later documentation-writing revision was not tested or built. Its new source
+help, example extraction and documentation scripts are not covered by these older
+records. No recorded log, count or expected result was changed for that revision.
+
+**Latest executed record:** [function tools and scientific integrations](function-tools/README.md)
 records 874 normal test assertions, 48 scientific integration assertions and all
 1,380 shared contract passes. The files described below retain the earlier
 725-assertion verification snapshot and its source digest.

@@ -1,38 +1,42 @@
-# Real scientific workflows, without a provider account
+# Scientific workflows in ordinary Julia files
 
-These examples use the installed DataFrames, Tables, Unitful and SciML packages—not
-stand-ins. They do local computation and build provider requests without sending
-them. They need no API keys and cannot incur inference charges.
+These reader-facing sources use real packages and tiny synthetic data. They do local
+computation, not provider inference:
 
-From this directory, install once (this step downloads packages):
+- [`tables.jl`](tables.jl): DataFrames summaries, selected rows and explicit missing-value policy.
+- [`units.jl`](units.jl): checked Unitful arguments and results that retain their units.
+- [`simulation.jl`](simulation.jl): a bounded SciML/Tsit5 solve and a concise result record.
+
+`runtests.jl` includes these same operation definitions and retains the prior
+assertions, including provider request-building and both extension load orders.
+**The extraction and new tutorial demonstrations were written without running them.**
+Earlier successful checks belong to the previous source snapshot, not this refactor.
+
+## Run later when authorized
+
+From this directory, install dependencies first (downloads packages, not provider data):
 
 ```sh
 julia --project=. -e 'using Pkg; Pkg.develop(path="../.."); Pkg.instantiate()'
 ```
 
-Then run:
+Run one lesson or the assertions:
 
 ```sh
+julia --startup-file=no --project=. tables.jl
+julia --startup-file=no --project=. units.jl
+julia --startup-file=no --project=. simulation.jl
 julia --startup-file=no --project=. runtests.jl
 ```
 
-The executable examples and assertions are together in [`runtests.jl`](runtests.jl):
+This environment targets Julia 1.12 and has separate dependency choices from the
+LM15 library. Literate is a tutorial-rendering dependency here, not a runtime
+requirement for applications using LM15.
 
-- **DataFrames:** choose a column, compute its summary, and return selected table
-  rows. Excess rows cause an error instead of hidden truncation. Converting
-  `missing` to null requires an explicit choice.
-- **Unitful:** accept distances in metres and durations in seconds, compute speed,
-  and return both its value and unit. Wrong units are refused, never evaluated as
-  Julia expressions. Quantities also work inside tables and explicit array output.
-- **SciML:** solve an actual exponential-decay differential equation using Tsit5,
-  check the numerical result, and return a small summary. The solver object stays
-  local. The operation has explicit input limits and an iteration budget.
-- **Provider boundary:** build the tool declaration and its result replay for
-  OpenAI Responses, OpenAI Chat, Anthropic and Gemini. No requests are sent.
+The documentation build renders these sources in an isolated scientific stage,
+records their source/dependency context, and includes ordinary Markdown in the final
+site without rerunning the calculations there. See [`docs/README.md`](../../docs/README.md).
 
-This environment has its own dependencies. Installing LM15 alone does not install
-DataFrames, Unitful or a differential-equation solver. The examples are tested on
-Julia 1.12; the package's wider native-platform claims remain separate.
-
-See [the function-tool guide](../../docs/function-tools.md) for the API and its
-intentional limits.
+Large datasets, solver objects and private identifiers should stay local unless your
+application explicitly decides otherwise. A local tool result can be sent later;
+that later request is a separate operation with its own privacy and cost implications.

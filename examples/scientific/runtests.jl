@@ -6,19 +6,9 @@ using LM15, DataFrames, Tables, Unitful, SciMLBase, OrdinaryDiffEqTsit5
 call(t, input) = tool_call("science-1", t.name, Dict{String,Any}(input))
 readout(result) = LM15.JSON.parse(only(result.content).text)
 
-const measurements = DataFrame(; trial=[1, 2, 3], height=[1.5, 2.0, 2.5])
-summary_tool = @tool "Summarize one measured column" function summarize_column(column::String)
-    column == "height" || throw(ArgumentError("choose the height column"))
-    values = measurements[!, column]
-    return (
-        count=length(values), mean=mean(values), minimum=minimum(values), maximum=maximum(values)
-    )
-end
-rows_tool = @tool "Read at most three measurement rows" function measurement_rows(count::Int)
-    0 <= count <= nrow(measurements) || throw(ArgumentError("count must be between zero and three"))
-    return view(measurements, 1:count, :)
-end
-rows_tool = tool(rows_tool; output=table_content)
+# The reader-facing sources own the operations; assertions below remain here.
+# This extraction and the new example demonstrations have not been executed yet.
+include("tables.jl")
 
 @testset "DataFrames and Tables workflows" begin
     @test Base.get_extension(LM15, :LM15TablesExt) !== nothing
@@ -43,12 +33,7 @@ rows_tool = tool(rows_tool; output=table_content)
     @test explicit["rows"] == [[1], [nothing]]
 end
 
-speed_tool = @tool "Compute speed from metres and seconds" function measured_speed(
-    distance::typeof(1.0u"m"), duration::typeof(1.0u"s")
-)
-    duration > 0u"s" || throw(ArgumentError("duration must be positive"))
-    return distance / duration
-end
+include("units.jl")
 @testset "Unitful: values retain their units" begin
     @test Base.get_extension(LM15, :LM15UnitfulExt) !== nothing
     t = speed_tool
@@ -81,19 +66,7 @@ end
     @test all(v -> v["unit"] == "m", matrix["values"])
 end
 
-# Expose a bounded scientific operation, not every method and option of solve().
-decay_tool = @tool "Predict exponential decay over a bounded interval" function predict_decay(
-    initial::Float64, rate::Float64; duration::Float64=1.0
-)
-    initial >= 0 && 0 <= rate <= 100 && 0 < duration <= 10 ||
-        throw(ArgumentError("initial must be nonnegative, rate 0–100 and duration (0,10]"))
-    problem = ODEProblem((u, p, t) -> -p*u, initial, (0.0, duration), rate)
-    solution = solve(
-        problem, Tsit5(); abstol=1e-10, reltol=1e-10, save_everystep=false, maxiters=10_000
-    )
-    SciMLBase.successful_retcode(solution) || error("solver did not finish successfully")
-    return (initial=initial, final=last(solution.u), time=last(solution.t))
-end
+include("simulation.jl")
 @testset "SciML: real differential-equation solve through a tool" begin
     result = execute_tool(decay_tool, call(decay_tool, Dict("initial"=>2, "rate"=>0.5)))
     values = readout(result)

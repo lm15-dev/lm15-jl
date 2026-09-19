@@ -1,0 +1,13 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LM15 = "7a3c8f1e-2d4b-4e6a-9f8c-1b3d5e7a9c2f"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+
+[compat]
+julia = "1.12"
+Documenter = "1.9"
+LM15 = "0.3"
+Literate = "2"

@@ -1,0 +1,40 @@
+name: Documentation preview (manual)
+
+# Deliberately not triggered by push/PR during this unverified writing-only phase.
+# Running this workflow executes docs examples and the scientific assertions.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - name: Install documentation dependencies (network-enabled setup)
+        shell: julia --startup-file=no --project=docs {0}
+        run: |
+          using Pkg
+          Pkg.develop(path=".")
+          Pkg.instantiate()
+      - name: Install scientific dependencies (network-enabled setup)
+        shell: julia --startup-file=no --project=examples/scientific {0}
+        run: |
+          using Pkg
+          Pkg.develop(path=".")
+          Pkg.instantiate()
+      - name: Build in a network namespace (no live provider access)
+        run: bash docs/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lm15-julia-docs-${{ github.sha }}
+          path: docs/build/
+          if-no-files-found: error
+          retention-days: 14

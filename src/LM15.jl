@@ -37,6 +37,17 @@ include("ergonomics.jl")
 include("tools.jl")
 include("vet.jl")
 
+# Canonical variants and provider factories are generated in several files.
+# Attach their authored help after all bindings exist, without changing behavior.
+include("docstrings/values.jl")
+include("docstrings/content.jl")
+include("docstrings/resources.jl")
+include("docstrings/clients.jl")
+include("docstrings/auth.jl")
+include("docstrings/streaming.jl")
+include("docstrings/errors.jl")
+include("docstrings/advanced.jl")
+
 export Part,
     Delta,
     StreamEvent,

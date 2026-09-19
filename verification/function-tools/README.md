@@ -1,5 +1,9 @@
 # Function tools and scientific integrations: verification
 
+Historical execution record for the source digest in `summary.json`. Subsequent
+source-help additions, tutorial extraction and documentation-build work were written
+without execution and are not newly verified by this record.
+
 Verified on **Julia 1.12.5, Linux x86-64**. All test runs were in network
 namespaces; only loopback was enabled for local HTTP/WebSocket tests. Fresh
 HOME directories kept real login stores out. No provider calls were made.
