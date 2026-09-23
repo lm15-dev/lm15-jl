@@ -13,7 +13,7 @@ the documentation pass; it is not a new compatibility or verification claim.
 - [Errors](errors.md): exception families and recovery meaning.
 - [Advanced interfaces](advanced.md): transports, wire mapping and migration helpers.
 
-Most names also work in Julia help mode, for example `?complete` and `?@tool`.
+Most names also work in Julia help mode, for example `?complete` and `?FunctionTool`.
 The documented defaults are source-level API facts, not guarantees that every
 provider/model accepts them. Operations can fail after a provider has begun work;
 read effect and ownership notes before retrying.

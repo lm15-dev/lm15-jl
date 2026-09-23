@@ -4,8 +4,7 @@
 CurrentModule = LM15
 ```
 
-See [handling failures](../guides/errors.md). Local [`ToolInputError`](@ref) and
-[`WaitTimeout`](@ref) are documented with tools and jobs. They are not subclasses
+See [handling failures](../guides/errors.md). Local [`WaitTimeout`](@ref) is documented with jobs. It is not a subclass
 of LM15Error.
 
 ```@docs

@@ -24,7 +24,7 @@ its output. Record and review actual differences instead.
 
 Julia constructors, tuples, typed function bindings and scoped `do` forms are local
 API choices. Requests still serialize canonical messages, tool specifications and
-configuration. A ToolBinding's callable is never serialized.
+configuration. A Julia function never enters a request.
 
 Opaque schema, tool-input and replay dictionaries retain their contents; typed
 optional fields have their own omission rules. Canonical indices, including part

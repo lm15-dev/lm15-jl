@@ -30,7 +30,7 @@ Device-login expiry belongs to `AuthError`. Errors may have status, provider cod
 request ID, retry delay or credential hint; absent fields remain `nothing`.
 
 Not every exception is an LM15Error. `ArgumentError` covers many invalid local
-constructions. `ToolInputError`, `WaitTimeout` and `UnknownProviderError` have their
+constructions. `WaitTimeout` and `UnknownProviderError` have their
 own meanings. Your function can also throw its own exception, which is not disguised
 as a successful tool result.
 

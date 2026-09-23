@@ -39,14 +39,12 @@ An event stream carries start metadata, typed deltas and final status. A
 read or an exhausted iterator is not a substitute for an end event. Early closing
 can leave a partial answer; it must not be labeled complete.
 
-## Tools have two representations
+## A tool is data; the function is yours
 
-`FunctionTool` is a provider-facing name, description and input schema. `ToolBinding`
-is the Julia-side callable, selected argument types and output conversion. A request
-accepts a binding as convenience, but serializes only its specification.
-
-`tool_arguments` checks a complete call. `execute_tool` checks again and invokes
-exactly one binding. Application policy decides whether to execute, how many calls
+`FunctionTool` is a provider-facing name, description and input schema, written
+out. The Julia function it describes is yours; a request holds only the tool and
+refuses a function. Your code checks a call's input, converts it and runs the
+function. Application policy decides whether to execute, how many calls
 to allow, which data to reveal and whether to send another request.
 
 ## Local and remote are not interchangeable

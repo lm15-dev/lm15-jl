@@ -5,7 +5,7 @@ Abstract root for normalized LM15 provider, transport, configuration and capabil
 failures. Inspect code, message, provider, provider_code, status, request_id,
 retry_after, credential_hint and model when present. Stream assembly errors may
 carry partial content and cleanup_errors. Do not assume every Julia exception is
-an LM15Error: ArgumentError, ToolInputError, WaitTimeout and UnknownProviderError
+an LM15Error: ArgumentError, WaitTimeout and UnknownProviderError
 are separate, as are errors thrown by your own functions.
 
 Error messages can contain provider-supplied text. Redacted client display does
@@ -56,7 +56,7 @@ expired code.
     error_code(error::LM15Error)
 
 Return the canonical error-code string. This does not classify arbitrary exceptions;
-ToolInputError and WaitTimeout have their own local meanings.
+WaitTimeout has its own local meaning.
 """ error_code
 
 @doc """

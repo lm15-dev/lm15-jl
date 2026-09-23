@@ -14,7 +14,7 @@ not a universal distinction between free and billable work.
 | `build_request` and other wire builders | Resolve credentials; may read media paths | Credential callbacks may do I/O; no model submission |
 | `complete` | Buffer/parse response | Model submission, potentially billable |
 | Consume `stream` | Assemble events incrementally | Active provider connection |
-| `execute_tool` | Invoke your function | Whatever your function explicitly does |
+| Running your tool function | Your code | Whatever your function explicitly does |
 | Files, caches, batches and generation | Materialize metadata/media | Provider resource operations, possible charges |
 | `wait!` | Update a job snapshot | Repeated status polling |
 | `cancel!(batch_job)` | Update snapshot | Request cancellation; not a billing guarantee |

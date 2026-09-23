@@ -1,8 +1,7 @@
-# Run a Julia tool without an account
+# Answer a tool call without an account
 
-Compute 19 squared locally, inspect the generated tool specification, check a
-proposed call, and explicitly execute it. Then see how a fractional integer input
-is rejected instead of rounded.
+Compute 19 squared locally: describe the tool, check a proposed call, run the
+function yourself and build its answer.
 
 **No account, network request or provider charge.** The call in this lesson is
 explicitly authored, not returned by a live model. The result should be JSON text

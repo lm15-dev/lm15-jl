@@ -47,7 +47,7 @@ that has no supported replay representation; LM15 does not silently discard it.
 ## Tool output
 
 `tool_result` accepts text and presentational parts, not nested tool calls or
-reasoning parts. `execute_tool` applies the binding's output conversion first.
+reasoning parts; `tool_content` turns a Julia value into those parts.
 Check the selected provider's media policy before returning a large image or audio
 payload to it. Encoding media locally is not permission to send it.
 

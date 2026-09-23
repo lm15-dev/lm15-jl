@@ -15,7 +15,7 @@ not proof of this new revision.
 - [Make your first provider request](docs/src/start/first-request.md)
 - [Try a local tool without a key](examples/tutorials/no-key.jl)
 - [Read the manual](docs/src/index.md)
-- [Find a function](docs/src/reference/index.md), or use `?complete` and `?@tool` in Julia
+- [Find a function](docs/src/reference/index.md), or use `?complete` and `?FunctionTool` in Julia
 
 From a checkout, in your application's Julia environment:
 
@@ -33,14 +33,14 @@ Registry publication is not assumed.
 ```julia
 using LM15
 
-square_tool = @tool "Square an integer exactly" square(n::Int) = big(n)^2
+square(n::Integer) = big(n)^2
 call = tool_call("example-1", "square", Dict("n" => 19))
-output = execute_tool(square_tool, call)
+output = tool_result(call, tool_content(square(call.input["n"])))
 println(only(output.content).text) # Expected: 361
 ```
 
 This call is authored locally; no model was contacted. A real provider can return
-that call description, but your application still decides whether to execute it.
+that call description, but your application still decides whether to run it.
 See the [complete tool exchange](docs/src/tutorials/tools.md), including the
 separately authorized live example.
 

@@ -15,8 +15,8 @@ records are retained unchanged for their original source snapshots.
 
 The previously recorded implementation includes canonical request/response data,
 provider adapters, routing, authentication, streams/live sessions and resources/jobs.
-Function tools use a separate ToolBinding, checked explicit execution and optional
-Tables/Unitful extensions. See [status](status.md) for recorded evidence and gaps.
+Function tools are written-out `FunctionTool`s (`@tool` and its bindings were removed
+before 1.0, 2026-09-23), with optional Tables/Unitful result extensions. See [status](status.md) for recorded evidence and gaps.
 
 When updating an application:
 

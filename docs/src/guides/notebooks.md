@@ -17,8 +17,8 @@ Pluto integration claim.
 
 ## Inspect before executing
 
-Display `Request`, `Response`, `FunctionTool(binding)` and `tool_arguments(binding,
-call)` to understand what would happen. Run `execute_tool` only after approval.
+Display `Request`, `Response`, the `FunctionTool` and the call's `input` to understand
+what would happen. Run your function only after approval.
 A cell re-run can submit a second provider request or execute a function again;
 there is no automatic deduplication or undo.
 

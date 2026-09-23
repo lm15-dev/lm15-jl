@@ -7,8 +7,8 @@
 
 Describe one model request without submitting it. `messages` contains `Message`
 values; a single message is accepted. `system` is text or prompt content. Tools
-may be canonical tool specifications or Julia `ToolBinding`s. Only their
-specifications enter the request. Models passed to a router may use `provider:model`;
+are `FunctionTool` or `BuiltinTool` values; a Julia function is refused, with the
+fix named. Models passed to a router may use `provider:model`;
 direct clients normally receive the provider's model name.
 
 Construction validates the request. Sequences become tuples; opaque dictionaries
@@ -102,31 +102,21 @@ See also [`user`](@ref), [`assistant`](@ref), [`tool_message`](@ref).
 
 @doc """
     FunctionTool(; name, description=nothing, parameters=Dict("type"=>"object", "properties"=>Dict()))
-    FunctionTool(binding::ToolBinding)
 
 Describe a callable operation to a provider, without storing or running its Julia
-function. `parameters` is an explicit JSON Schema object. Its contents are retained,
-including empty values; construction checks JSON shape, not the meaning of arbitrary
-schema keywords. For supported Julia signatures, `@tool` derives this specification.
+function. `parameters` is an explicit JSON Schema object, written out as in every
+LM15 language; LM15 does not derive it from a Julia method. Its contents are
+retained, including empty values; construction checks JSON shape, not the meaning
+of arbitrary schema keywords.
 
-See also [`@tool`](@ref), [`ToolBinding`](@ref), [`execute_tool`](@ref).
+See also [`tool_result`](@ref), [`tool_content`](@ref).
 """ FunctionTool
 
-@doc """
-    ToolBinding
-
-Keep a Julia callable and its selected typed interface separate from the canonical
-`FunctionTool` sent to a provider. Construct with `@tool` or `tool`, not raw fields.
-Registration does not execute the callable or its argument defaults. `tool_arguments`
-checks a call without executing it; `execute_tool` explicitly performs one call.
-Changing a separately obtained `FunctionTool` does not rewrite the binding's codecs.
-""" ToolBinding
-
 for (name, signature, explanation) in (
-    (:Part, "Part", "Abstract family of canonical message content. Use the existing text, media, citation, call and result variants. Application data types extend tool codecs instead of inventing new wire variants."),
+    (:Part, "Part", "Abstract family of canonical message content. Use the existing text, media, citation, call and result variants. Application data types extend tool_value instead of inventing new wire variants."),
     (:Delta, "Delta", "Abstract family of incremental updates carried by StreamDeltaEvent. Part indices are canonical zero-based indices, not Julia array indices."),
     (:StreamEvent, "StreamEvent", "Abstract family of start, delta, end and error events. An end event, not merely end-of-input, establishes a completed streamed answer."),
-    (:Tool, "Tool", "Abstract family containing FunctionTool and BuiltinTool specifications. ToolBinding is a separate Julia execution object, normalized to FunctionTool in requests."),
+    (:Tool, "Tool", "Abstract family containing FunctionTool and BuiltinTool specifications. Requests hold only these; a Julia function is refused."),
     (:LiveClientEvent, "LiveClientEvent", "Abstract family of events your application sends on a live session using send!."),
     (:LiveServerEvent, "LiveServerEvent", "Abstract family of normalized events received from a live session. Use recv or iterate a TurnView."),
     (:ContinuationState, "ContinuationState(; provider, kind, data=Dict())", "Retain opaque provider-specific replay state. Preserve it when replaying messages or parts; do not fabricate, interpret, or discard its data. Display is redacted, but explicit serialization exposes the stored data."),
@@ -134,15 +124,15 @@ for (name, signature, explanation) in (
     (:ThinkingPart, "ThinkingPart(text; continuation=())", "Store provider-returned reasoning text and any replay state. Do not turn it into user instructions or invent signed reasoning state."),
     (:RefusalPart, "RefusalPart(text; continuation=())", "Store nonempty refusal text. A refusal is distinct from an ordinary textual answer and is not accepted as tool-result content."),
     (:CitationPart, "CitationPart(; url=nothing, title=nothing, text=nothing, continuation=())", "Store a citation with at least one nonempty URL, title, or text value. Provider replay support is not universal."),
-    (:ToolCallPart, "ToolCallPart(; id, name, input=Dict{String,Any}(), continuation=())", "Store a proposed tool invocation. input is a string-keyed JSON object, not already-converted Julia function arguments. This object executes nothing. Decode and approve before execute_tool."),
+    (:ToolCallPart, "ToolCallPart(; id, name, input=Dict{String,Any}(), continuation=())", "Store a proposed tool invocation. input is a string-keyed JSON object, not already-converted Julia function arguments. This object executes nothing; your code decides whether and how to run it."),
     (:ToolResultPart, "ToolResultPart(; id, content, name=nothing, is_error=false, continuation=())", "Store nonempty presentational tool output: text, media or citations, never calls or reasoning protocol parts. Prefer tool_result(call, content) to preserve the call ID and name. An empty output is one empty TextPart, not an empty content tuple."),
-    (:BuiltinTool, "BuiltinTool(; name, config=nothing)", "Request a provider-hosted tool. This is not a Julia function and cannot be executed by execute_tool. Supported names and configuration depend on the provider, model and compatibility policy."),
+    (:BuiltinTool, "BuiltinTool(; name, config=nothing)", "Request a provider-hosted tool. This is not a Julia function; the provider runs it. Supported names and configuration depend on the provider, model and compatibility policy."),
     (:ToolChoice, "ToolChoice(; mode=\"auto\", allowed=(), parallel=nothing)", "Control offered tools: mode is auto, required or none. allowed names must be present in the request's tools. none forbids allowed names and a parallel setting. Provider support still applies; required is not a guarantee of a particular successful call."),
     (:Reasoning, "Reasoning(; effort, thinking_budget=nothing, summary=nothing)", "Request reasoning effort: off, minimal, low, medium, high, xhigh or max. An optional thinking_budget must be positive; summary is auto, concise or detailed. off forbids budget and summary. Model-specific mappings may reject unsupported settings."),
     (:CacheConfig, "CacheConfig(; mode=\"auto\", retention=nothing, key=nothing, prefix_until_index=nothing, prefix=nothing, resource=nothing)", "Configure prompt caching. retention is short or long; prefix is stable or history. prefix and the nonnegative prefix_until_index are mutually exclusive. resource identifies a stored cache. mode=off forbids all other cache settings. No cache is created by constructing this value."),
     (:TopLogprob, "TopLogprob(; token, logprob, bytes=nothing, token_id=nothing)", "Describe one token alternative with a finite log probability, optional byte values and provider token ID."),
     (:TokenLogprob, "TokenLogprob(; token, logprob, bytes=nothing, token_id=nothing, top=())", "Describe a generated token and its alternative TopLogprob values. These are token-level probabilities, not a confidence score for the answer's truth."),
-    (:ToolCallInfo, "ToolCallInfo(; id, name, input)\n    ToolCallInfo(part::ToolCallPart)", "Hold a lightweight live-turn call description. Convert to ToolCallPart(info) to use tool_arguments and execute_tool."),
+    (:ToolCallInfo, "ToolCallInfo(; id, name, input)\n    ToolCallInfo(part::ToolCallPart)", "Hold a lightweight live-turn call description. Convert to ToolCallPart(info) where a part is needed."),
     (:InferencePricing, "InferencePricing(; input_per_million=nothing, output_per_million=nothing, cache_read_per_million=nothing, cache_write_per_million=nothing, currency=\"USD\", dimensions=nothing)", "Describe nonnegative unit prices and optional extra pricing dimensions. Unreported rates remain nothing. estimate is not an invoice and does not cover every pricing dimension."),
     (:InferenceModelInfo, "InferenceModelInfo(; input_modalities=(\"text\",), output_modalities=(\"text\",), context_window=nothing, max_output_tokens=nothing, supports_reasoning=false, reasoning_efforts=(), pricing=nothing, extensions=nothing)", "Describe reported model capabilities and optional pricing. Catalog metadata does not prove that a particular account can use every capability."),
     (:ModelOrigin, "ModelOrigin(; type=\"provider\", id=nothing, base_model=nothing, provider_data=nothing)", "Record model provenance, an optional origin ID/base model, and opaque provider information."),

@@ -2,42 +2,67 @@
 #
 # **Goal:** compute a speed without confusing metres, seconds or other units.
 # **Requires:** LM15 and Unitful. **Effect:** local computation; no account.
-# This source is a newly written documentation example, not a new test result.
 
 using LM15, Unitful
 
-speed_tool = @tool "Compute speed from metres and seconds" function measured_speed(
-    distance::typeof(1.0u"m"), duration::typeof(1.0u"s")
+# The schema asks for each quantity as a value with a fixed unit.
+quantity_schema(unit) = Dict(
+    "type" => "object",
+    "properties" => Dict(
+        "value" => Dict("type" => "number"),
+        "unit" => Dict("type" => "string", "const" => string(unit)),
+    ),
+    "required" => ["value", "unit"],
+    "additionalProperties" => false,
 )
+speed_tool = FunctionTool(
+    name="measured_speed",
+    description="Compute speed from metres and seconds",
+    parameters=Dict(
+        "type" => "object",
+        "properties" => Dict("distance" => quantity_schema(u"m"), "duration" => quantity_schema(u"s")),
+        "required" => ["distance", "duration"],
+    ),
+)
+
+# Your code turns the model's JSON into quantities, and refuses what it did not
+# offer. Incoming unit strings are compared, never evaluated as Julia code.
+function quantity(input, unit)
+    input isa AbstractDict && Set(keys(input)) == Set(["value", "unit"]) ||
+        throw(ArgumentError("expected {\"value\": ..., \"unit\": \"$(unit)\"}"))
+    input["unit"] == string(unit) ||
+        throw(ArgumentError("expected unit $(unit); convert units explicitly"))
+    value = input["value"]
+    value isa Real && !(value isa Bool) && isfinite(value) ||
+        throw(ArgumentError("value must be a finite number"))
+    return Float64(value) * unit
+end
+function measured_speed(distance, duration)
     duration > 0u"s" || throw(ArgumentError("duration must be positive"))
     return distance / duration
 end
 
-# Loading Unitful activates LM15's quantity conversion. The selected argument type
-# fixes the expected unit; incoming unit strings are never evaluated as Julia code.
 speed_call = tool_call("speed-1", "measured_speed", Dict(
     "distance" => Dict("value" => 12, "unit" => "m"),
     "duration" => Dict("value" => 3, "unit" => "s"),
 ))
-checked_speed_arguments = tool_arguments(speed_tool, speed_call)
-checked_speed_arguments.distance, checked_speed_arguments.duration
-
-speed_output = execute_tool(speed_tool, speed_call)
+distance = quantity(speed_call.input["distance"], u"m")
+duration = quantity(speed_call.input["duration"], u"s")
+speed_output = tool_result(speed_call, tool_content(measured_speed(distance, duration)))
 only(speed_output.content).text
 
-# The result retains value 4.0 and the unit for metres per second. It does not
-# silently send a unitless 4.0. The exact printed spelling of compound units belongs
-# to Unitful; the tool schema uses the spelling of the declared quantity type.
+# Loading Unitful lets tool_content keep a quantity's unit next to its value: the
+# result is 4.0 with the unit for metres per second, not a unitless 4.0. The exact
+# printed spelling of compound units belongs to Unitful.
 #
 # ## Wrong units are not guessed
 #
-# Convert centimetres to metres explicitly in application code before creating the
-# input object, or expose a separate operation whose declared type is centimetres.
-# A model-supplied "cm" is not accepted for the "m" interface.
+# Convert centimetres to metres explicitly in application code, or offer a separate
+# operation that takes centimetres. A model-supplied "cm" is refused here.
 try
-    tool_decode(typeof(1.0u"m"), Dict("value" => 1200, "unit" => "cm"))
+    quantity(Dict("value" => 1200, "unit" => "cm"), u"m")
 catch error
-    error isa ToolInputError || rethrow()
+    error isa ArgumentError || rethrow()
     showerror(stdout, error)
     println()
 end

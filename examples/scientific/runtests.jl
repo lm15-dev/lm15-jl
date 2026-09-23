@@ -3,22 +3,24 @@
 using Test, Statistics
 using LM15, DataFrames, Tables, Unitful, SciMLBase, OrdinaryDiffEqTsit5
 
-call(t, input) = tool_call("science-1", t.name, Dict{String,Any}(input))
+call(name, input) = tool_call("science-1", name, Dict{String,Any}(input))
 readout(result) = LM15.JSON.parse(only(result.content).text)
 
 # The reader-facing sources own the operations; assertions below remain here.
-# This extraction and the new example demonstrations have not been executed yet.
 include("tables.jl")
 
 @testset "DataFrames and Tables workflows" begin
     @test Base.get_extension(LM15, :LM15TablesExt) !== nothing
-    summary = readout(execute_tool(summary_tool, call(summary_tool, Dict("column"=>"height"))))
+    @test summary_tool.parameters["properties"]["column"]["enum"] == ["height"]
+    summary = readout(summary_output)
     @test summary["count"] == 3
     @test summary["mean"] == 2.0
-    rows = readout(execute_tool(rows_tool, call(rows_tool, Dict("count"=>2))))
+    @test_throws ArgumentError summarize_column("trial")
+    rows = readout(rows_output)
     @test rows["columns"] == ["trial", "height"]
     @test rows["rows"] == [[1, 1.5], [2, 2.0]]
-    @test isempty(readout(execute_tool(rows_tool, call(rows_tool, Dict("count"=>0))))["rows"])
+    @test isempty(LM15.JSON.parse(only(table_content(measurement_rows(0))).text)["rows"])
+    @test_throws ArgumentError measurement_rows(4)
     @test_throws ArgumentError table_content(measurements; max_rows=2)
     @test_throws ArgumentError table_content(measurements; max_rows=true)
     @test_throws ArgumentError table_content(measurements; max_rows=-1)
@@ -36,29 +38,23 @@ end
 include("units.jl")
 @testset "Unitful: values retain their units" begin
     @test Base.get_extension(LM15, :LM15UnitfulExt) !== nothing
-    t = speed_tool
-    schema = FunctionTool(t).parameters["properties"]
+    schema = speed_tool.parameters["properties"]
     @test schema["distance"]["properties"]["unit"]["const"] == "m"
-    input = Dict(
-        "distance"=>Dict("value"=>12, "unit"=>"m"), "duration"=>Dict("value"=>3, "unit"=>"s")
-    )
-    args = tool_arguments(t, call(t, input))
-    @test args.distance === 12.0u"m"
-    @test args.duration === 3.0u"s"
-    output = readout(execute_tool(t, call(t, input)))
+    @test distance === 12.0u"m"
+    @test duration === 3.0u"s"
+    output = readout(speed_output)
     @test output["value"] == 4.0
     @test output["unit"] == string(u"m/s")
-    @test tool_decode(typeof(1.0u"m/s"), output) === 4.0u"m/s"
     for bad in (
         Dict("value"=>1200, "unit"=>"cm"),
         Dict("value"=>12),
         Dict("value"=>12, "unit"=>"m", "extra"=>1),
         Dict("value"=>12, "unit"=>"run(`false`)"),
+        Dict("value"=>true, "unit"=>"m"),
         12,
     )
-        @test_throws ToolInputError execute_tool(t, call(t, merge(input, Dict("distance"=>bad))))
+        @test_throws ArgumentError quantity(bad, u"m")
     end
-    @test_throws ToolInputError tool_decode(typeof(1u"m"), Dict("value"=>1.5, "unit"=>"m"))
     values = LM15.JSON.parse(only(table_content(DataFrame(distance=[1.0u"m", 2.0u"m"]))).text)
     @test values["rows"][1][1] == Dict("value"=>1.0, "unit"=>"m")
     matrix = LM15.JSON.parse(only(array_content([1u"m" 2u"m"])).text)
@@ -68,30 +64,21 @@ end
 
 include("simulation.jl")
 @testset "SciML: real differential-equation solve through a tool" begin
-    result = execute_tool(decay_tool, call(decay_tool, Dict("initial"=>2, "rate"=>0.5)))
-    values = readout(result)
+    values = readout(decay_output)
     @test values["final"] ≈ 2exp(-0.5) atol=1e-9
     @test values["time"] == 1.0
-    @test_throws ArgumentError execute_tool(
-        decay_tool, call(decay_tool, Dict("initial"=>2, "rate"=>0.5, "duration"=>100))
-    )
-    @test_throws ToolInputError execute_tool(
-        decay_tool, call(decay_tool, Dict("initial"=>2, "rate"=>"arbitrary Julia code"))
-    )
+    @test_throws ArgumentError predict_decay(2.0, 0.5; duration=100.0)
+    @test_throws ArgumentError number(Dict("rate"=>"arbitrary Julia code"), "rate")
     # The same tool specification goes to each provider; computation stays local.
     for constructor in (OpenAILM, OpenAIChatLM, AnthropicLM, GeminiLM)
         lm = constructor(api_key="offline-synthetic", env=Dict{String,String}())
         req = Request("model", user("Predict decay"); tools=decay_tool)
         wire = build_request(lm, req)
         @test occursin("predict_decay", String(copy(wire.body)))
-        @test only(req.tools) isa FunctionTool
+        @test only(req.tools) === decay_tool
         resumed = Request(
             req;
-            messages=[
-                req.messages...,
-                assistant(call(decay_tool, Dict("initial"=>2, "rate"=>0.5))),
-                tool_message(result),
-            ],
+            messages=[req.messages..., assistant(decay_call), tool_message(decay_output)],
         )
         @test !isempty(build_request(lm, resumed).body)
     end
@@ -109,7 +96,7 @@ end
         using LM15
         @assert Base.get_extension(LM15, :LM15TablesExt) !== nothing
         @assert Base.get_extension(LM15, :LM15UnitfulExt) !== nothing
-        @assert tool_decode(typeof(1.0u"m"), Dict("value"=>2,"unit"=>"m")) === 2.0u"m"
+        @assert tool_value(2.0u"m") == Dict("value"=>2.0, "unit"=>"m")
         @assert LM15.JSON.parse(only(table_content([(x=1,)])).text) == Dict("columns"=>["x"],"rows"=>[[1]])
     """
     @test success(

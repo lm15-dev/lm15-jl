@@ -28,8 +28,8 @@ After a real `complete(client, req)`, inspect the finish reason, then use
 non-text content. It does not run a general JSON Schema validator or guarantee that
 all requested fields were returned.
 
-For a known Julia input representation, you can call `tool_decode(T, object)` and
-perform application-domain checks. For arbitrary schemas, choose an explicit
+Check the parsed object against the representation you expect and perform
+application-domain checks. For arbitrary schemas, choose an explicit
 validator in your application. A model's numerical claim is not independently
 verified simply because its JSON is well formed.
 
