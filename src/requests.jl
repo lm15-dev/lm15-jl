@@ -458,6 +458,14 @@ function openai_payload(l, r; stream=false, chat=false)
         ) || (d[key]=value)
     end
     if l.access.backend=="chatgpt-codex"
+        # An explicit cap or store=true is refused, never stripped: dropping a cap
+        # means unbounded spend (MAP-13 rule 4; the other SDKs refuse the same).
+        r.config.max_tokens===nothing || throw(UnsupportedFeatureError(
+            "$(l.provider): config.max_tokens: this backend has no output cap; dropping it risks unbounded paid generation";
+            provider=l.provider))
+        r.config.store===true && throw(UnsupportedFeatureError(
+            "$(l.provider): config.store: this backend cannot store a retrievable response; the program may depend on retrieval";
+            provider=l.provider))
         get!(d, "instructions", something(l.access.system_prefix, "You are a helpful assistant."))
         d["store"]=false
         d["stream"]=true

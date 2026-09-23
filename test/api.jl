@@ -123,3 +123,18 @@ end
     @test occursin("hello", sprint(show, MIME"text/plain"(), answer))
     @test !occursin(SENTINEL, sprint(show, MIME"text/plain"(), answer))
 end
+
+@testset "Codex refuses an output cap or store=true, never strips it (MAP-13 rule 4)" begin
+    lm = OpenAICodexLM(api_key="tok", account_id="acct", env=Dict{String,String}())
+    @test !occursin("max_output_tokens", String(copy(build_request(lm, Request("gpt-5.5", user("hi"))).body)))
+    for (config, field) in ((Config(max_tokens=5), "config.max_tokens"), (Config(store=true), "config.store"))
+        err = try
+            build_request(lm, Request("gpt-5.5", user("hi"); config))
+            nothing
+        catch e
+            e
+        end
+        @test err isa UnsupportedFeatureError
+        @test occursin("openai-codex: $field", sprint(showerror, err))
+    end
+end
