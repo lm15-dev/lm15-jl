@@ -59,6 +59,28 @@ const GEMINI_ERROR_MAP=Dict(
     "UNAVAILABLE"=>ServerError,
     "DEADLINE_EXCEEDED"=>TimeoutError,
 )
+# MAP-15: the pinned forms of a provider's "no such model" answer that carry no
+# model-specific code and no not-found class (lm15-contract
+# spec/model-not-found.json, carried verbatim; each form has a live receipt).
+const MODEL_NOT_FOUND_FORMS=(
+    (code="not_found_error", prefix="model: "),  # Anthropic, Claude Code
+    (code="invalid_request_error", contains="The supported API model names are "),  # DeepSeek
+    (code="1211",),  # Z.AI: Unknown Model
+    (code="1214", prefix="modelCode: "),  # Z.AI: the model field is invalid
+    (code="400", suffix=" is not a valid model ID"),  # OpenRouter
+    (code="invalid-argument", prefix="Model not found: "),  # xAI (2026-09-01)
+    (code="validation_error", contains="The provided model identifier is invalid"),  # Bedrock Chat
+)
+function pinned_model_not_found(code, message)
+    (code isa AbstractString && !isempty(code)) || return false
+    text=message isa AbstractString ? message : ""
+    return any(MODEL_NOT_FOUND_FORMS) do f
+        f.code==code &&
+            (!haskey(f, :prefix) || startswith(text, f.prefix)) &&
+            (!haskey(f, :contains) || occursin(f.contains, text)) &&
+            (!haskey(f, :suffix) || endswith(text, f.suffix))
+    end
+end
 function model_error(message)
     return occursin("model", lowercase(message)) && any(
         s->occursin(s, lowercase(message)),
@@ -145,6 +167,7 @@ function normalize_error(l::ProviderLM, status, body)
             get(GEMINI_ERROR_MAP, code, nothing)
         end
     end
+    pinned_model_not_found(code, message) && (T=UnsupportedModelError)  # MAP-15
     isempty(message) && (message="HTTP $status") # Do not echo arbitrary error bodies containing credentials.
     requestid=first_nonempty(requestid, string_field(inner, "request_id"))
     hint=get(inner, "retry_after", get(data, "retry_after", nothing))
@@ -181,6 +204,7 @@ function error_detail(l, code, message)
         OPENAI_ERROR_MAP
     end
     T=get(table, code, GenericProviderError)
+    pinned_model_not_found(code, message) && (T=UnsupportedModelError)  # MAP-15
     if l.dialect in ("anthropic", "gemini")
         context_error(message) && (T=ContextLengthError)
         code in ("NOT_FOUND", "not_found_error") &&
