@@ -66,9 +66,14 @@ function preset_key(name)
     key = replace(lowercase(name), '-'=>'_', ' '=>'_', '.'=>'_')
     return get(PRESET_ALIASES, key, key)
 end
+# Settings of features this port does not implement yet (token_scoring: MAP-14
+# candidate scoring on vLLM). The shared preset tables carry them; skipped here,
+# while any other unknown key is still an error (a typo in a caller's policy).
+const UNPORTED_COMPAT_SETTINGS = ("token_scoring",)
 function compat_from_dict(::Type{T}, d) where {T<:Compat}
     kw = Dict{Symbol,Any}()
     for (key, v) in d
+        key in UNPORTED_COMPAT_SETTINGS && continue
         name=Symbol(key)
         name in fieldnames(T) || throw(ArgumentError("unknown compatibility setting $key"))
         kw[name] = v isa AbstractVector ? Tuple(v) : v
