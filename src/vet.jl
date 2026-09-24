@@ -234,11 +234,16 @@ function vet_operation(msg)
         )),
     )
     if op=="build_request"
-        return wire_dict(
-            build_request(
-                l, from_dict(Request, msg["canonical_request"]); stream=get(msg, "stream", false)
-            ),
+        wire, records=build_request_adapted(
+            l, from_dict(Request, msg["canonical_request"]); stream=get(msg, "stream", false)
         )
+        out=wire_dict(wire)
+        isempty(records) || (out["adaptations"]=[
+            merge(obj("field"=>a.field, "action"=>a.action),
+                a.asked===nothing ? obj() : obj("asked"=>a.asked),
+                a.applied===nothing ? obj() : obj("applied"=>a.applied))
+            for a in records])
+        return out
     elseif op=="parse_response"
         return vet_response(
             parse_response(l, from_dict(Request, msg["canonical_request"]), vet_http(msg))
@@ -415,6 +420,7 @@ function vet_handle_line(line)
         )
         if e isa LM15Error
             error["code"]=e.code
+            e.feature===nothing || (error["feature"]=e.feature)
             e.partial===nothing || (error["partial_response"]=to_dict(e.partial))
             if e isa Union{UnknownModelError,AmbiguousModelError}
                 error["model"]=e.model

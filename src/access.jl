@@ -73,6 +73,8 @@ function policy_from_dict(d)
             ) for s in get(host, "settings", [])
         )
         h[:required_headers]=Tuple(get(host, "required_headers", []))
+        # Fields this port does not use yet (endpoint_env, 2026-09-19) are skipped, not an error.
+        filter!(kv->first(kv) in fieldnames(HostSpec), h)
         kw[:host]=HostSpec(; h...)
     end
     return AccessPolicy(; kw...)

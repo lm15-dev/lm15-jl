@@ -59,6 +59,7 @@ Base.@kwdef struct RouterConfig
     base_urls::AbstractDict = Dict{String,String}()
     settings::AbstractDict = Dict{String,Any}()
     transport::Any = nothing
+    adaptations::String = "note"
 end
 function Base.show(io::IO, ::RouterConfig)
     return print(io, "RouterConfig(<credentials and environment withheld>)")
@@ -186,6 +187,7 @@ function lm(router::LMRouter, model::AbstractString)
             settings,
             env=config.env===nothing ? ENV : config.env,
             transport=config.transport,
+            adaptations=config.adaptations,
         )
         return router.clients[provider]=client
     end
@@ -193,6 +195,18 @@ end
 function complete(router::LMRouter, request::Request)
     resolution=resolve(router, request.model)
     return complete(lm(router, request.model), reconstruct(request; model=resolution.model))
+end
+function plan(router::LMRouter, request::Request; stream=false)
+    resolution=resolve(router, request.model)
+    # Like resolve, plan is offline: a route with no key still plans; the
+    # stand-in credential is never read, because nothing is sent.
+    client=try
+        lm(router, request.model)
+    catch e
+        e isa NotConfiguredError || rethrow()
+        ProviderLM(resolution.provider; api_key="unused: plan sends nothing", adaptations=router.config.adaptations)
+    end
+    return plan(client, reconstruct(request; model=resolution.model); stream)
 end
 function stream(router::LMRouter, request::Request)
     resolution=resolve(router, request.model)

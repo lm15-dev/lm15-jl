@@ -92,17 +92,45 @@ function breakpoint_index(request, control)
         min(cache.prefix_until_index, length(request.messages)-1)
     end
 end
+# MAP-13: the wire carries the mark on a text block of a user/developer message
+# only; a mark asked elsewhere walks back to the nearest eligible message ("cache
+# up to here"), else it is dropped and implicit caching still applies.
+function adapted_breakpoint(request, control)
+    asked=breakpoint_index(request, control)
+    asked===nothing && return nothing
+    for index in asked:-1:0
+        msg=request.messages[index+1]
+        (msg.role in ("assistant", "tool") || isempty(msg.parts) || !(last(msg.parts) isa TextPart)) && continue
+        index==asked || adapt!(
+            "config.cache.prefix_until_index", "substituted",
+            "message $(asked) is a $(request.messages[asked+1].role) message or does not end with text; the Responses wire marks text blocks of user/developer messages only, so the mark moved to the nearest eligible message before it";
+            asked, applied=index,
+        )
+        return index
+    end
+    adapt!(
+        "config.cache.prefix_until_index", "dropped",
+        "no user/developer message ending with text at or before message $(asked); the Responses wire marks text blocks only (implicit caching still applies)";
+        asked,
+    )
+    return nothing
+end
 function stable_prefix(request, control)
     return request.config.cache!==nothing &&
            request.config.cache.mode!="off" &&
            request.config.cache.prefix=="stable" &&
            control=="openai"
 end
-function openai_cache!(payload, r, c, provider)
+function openai_cache!(payload, r, c, provider; boundary=breakpoint_index(r, c.cache_control))
     cache=r.config.cache
     cache===nothing && return nothing
     cache.resource===nothing || unsupported(provider, "stored cache resource")
-    c.cache_control in ("openai", "openai_implicit") || return nothing
+    if !(c.cache_control in ("openai", "openai_implicit"))
+        # MAP-13: the key and the lifetime have no home on this server.
+        cache.key===nothing || adapt!("config.cache.key", "dropped", "this server has no cache affinity field; implicit caching still applies"; asked=cache.key)
+        cache.retention=="long" && adapt!("config.cache.retention", "dropped", "this server has no in-request cache lifetime knob; implicit caching still applies"; asked="long")
+        return nothing
+    end
     if cache.mode=="off"
         c.cache_control=="openai" &&
             has_cache_options(r.model) &&
@@ -114,20 +142,16 @@ function openai_cache!(payload, r, c, provider)
     if c.cache_control=="openai" &&
         has_cache_options(r.model) &&
         (
-            breakpoint_index(r, c.cache_control)!==nothing ||
+            boundary!==nothing ||
             (stable_prefix(r, c.cache_control) && r.system!==nothing)
         )
         payload["prompt_cache_options"]=obj("mode"=>"explicit")
     end
 end
-function openai_messages(l, r, c; chat=false)
+function openai_messages(l, r, c; chat=false, boundary=breakpoint_index(r, c.cache_control))
     out=Any[]
-    boundary=breakpoint_index(r, c.cache_control)
     for (pos, msg) in enumerate(r.messages)
         marked=pos-1==boundary
-        marked &&
-            msg.role in ("assistant", "tool") &&
-            unsupported(l.provider, "cache breakpoint on $(msg.role) message")
         if msg.role=="tool"
             for part in msg.parts
                 entry=if chat
@@ -234,14 +258,7 @@ function openai_messages(l, r, c; chat=false)
         else
             [openai_input(p, l.provider) for p in msg.parts]
         end
-        if marked
-            (
-                content isa AbstractVector &&
-                !isempty(content) &&
-                get(last(content), "type", nothing)==(chat ? "text" : "input_text")
-            ) || unsupported(l.provider, "cache breakpoint must be on the final text block")
-            last(content)["prompt_cache_breakpoint"]=obj("mode"=>"explicit")
-        end
+        marked && (last(content)["prompt_cache_breakpoint"]=obj("mode"=>"explicit"))
         push!(out, obj("role"=>role, "content"=>content))
     end
     return out
@@ -302,19 +319,42 @@ end
 function openai_reasoning!(d, reasoning, c, l; chat=false)
     reasoning===nothing && return nothing
     format=chat ? c.thinking_format : c.reasoning_format
-    format=="none" && unsupported(l.provider, "reasoning dial on a wire with no reasoning field")
-    reasoning.thinking_budget===nothing || unsupported(l.provider, "thinking token budget")
-    reasoning.summary in ("concise", "detailed") &&
-        format!="responses_reasoning" &&
-        unsupported(l.provider, "reasoning summary detail")
+    if chat && format=="none"
+        adapt!("config.reasoning", "dropped", "this server has no reasoning dial on its wire (compat thinking_format='none'); the model reasons at its own default; pass the server's own knob through extensions"; asked=obj("effort"=>reasoning.effort))
+        return nothing
+    end
     off=reasoning.effort=="off"
     word=off ? "none" : reasoning.effort
-    if chat && !off && c.reasoning_efforts!==nothing
-        word in c.reasoning_efforts || unsupported(l.provider, "reasoning effort $word")
+    summary=reasoning.summary
+    if !off
+        reasoning.thinking_budget===nothing || adapt!(
+            "config.reasoning.thinking_budget", "dropped",
+            chat ? "the Chat Completions wire has no thinking token budget; effort carries the intent" :
+                   "this wire has no thinking token budget; effort carries the intent (Anthropic's manual class and Gemini take a budget)";
+            asked=reasoning.thinking_budget,
+        )
+        if summary in ("concise", "detailed") && !(!chat && format=="responses_reasoning")
+            adapt!(
+                "config.reasoning.summary", "substituted",
+                chat ? "the Chat Completions wire has no summary detail levels; 'auto' is what it shows" :
+                       "this wire has no summary detail levels; 'auto' is what it shows";
+                asked=summary, applied="auto",
+            )
+            chat && (summary="auto")
+        end
+        if chat && c.reasoning_efforts!==nothing && !(word in c.reasoning_efforts)
+            nearest=nearest_effort(word, c.reasoning_efforts)
+            adapt!(
+                "config.reasoning.effort", "clamped",
+                "this server has no '$(word)' level (it accepts $(join(c.reasoning_efforts, ", "))) and would have accepted the word silently";
+                asked=word, applied=nearest,
+            )
+            word=nearest
+        end
     end
     if format=="responses_reasoning"
         d["reasoning"]=obj("effort"=>word)
-        reasoning.summary===nothing || (d["reasoning"]["summary"]=reasoning.summary)
+        !off && summary!==nothing && (d["reasoning"]["summary"]=summary)
     elseif format in ("reasoning_effort", "kimi")
         if format=="kimi" && off
             (d["thinking"]=obj("type"=>"disabled"))
@@ -334,33 +374,63 @@ function openai_reasoning!(d, reasoning, c, l; chat=false)
         else
             obj("enable_thinking"=>true, "preserve_thinking"=>true)
         end
-    else
-        unsupported(l.provider, "unknown reasoning mapping")
     end
-    return chat &&
+    return !off && chat &&
            c.builtin_tools=="groq" &&
-           reasoning.summary=="auto" &&
+           summary=="auto" &&
            (d["reasoning_format"]="parsed")
+end
+# xAI's own adaptations before the Chat Completions build (Python XaiLM._payload).
+function xai_prepare(l, r)
+    config=r.config
+    if config.reasoning!==nothing && config.reasoning.effort=="off"
+        adapt!("config.reasoning.effort", "substituted", "Grok reasoning models have no off switch and api.x.ai ignores disable fields (158 reasoning tokens on an explicit off, live 2026-09-01); the lowest level was sent"; asked="off", applied="low")
+        config=reconstruct(config; reasoning=reconstruct(config.reasoning; effort="low"))
+    end
+    if config.logprobs!==nothing
+        adapt!("config.logprobs", "dropped", "grok-4.20 and newer ignore logprobs/top_logprobs (docs.x.ai, live 2026-09-01); Response.logprobs will be absent (OpenAI and Gemini carry them)"; asked=config.logprobs)
+        config=reconstruct(config; logprobs=nothing)
+    end
+    tools=r.tools
+    tc=config.tool_choice
+    if tc!==nothing && !isempty(tc.allowed) && !(length(tc.allowed)==1 && tc.mode=="required")
+        tools=Tuple(t for t in r.tools if t.name in tc.allowed)
+        adapt!("config.tool_choice.allowed", "client_side", "api.x.ai ignores tool_choice allowlists (live 2026-09-02); only the allowed tools were sent, which is what the allowlist means"; asked=collect(tc.allowed), applied=[t.name for t in tools])
+        tc=reconstruct(tc; allowed=())
+        config=reconstruct(config; tool_choice=tc)
+    end
+    tc!==nothing && tc.mode=="required" && config.response_format!==nothing && throw(UnsupportedFeatureError(
+        "xai: a forced tool (mode='required') cannot be combined with response_format — api.x.ai returns JSON text and drops the call (verified live 2026-09-02)";
+        provider=l.provider, feature="config.tool_choice.mode"))
+    return reconstruct(r; tools, config)
+end
+# A server that ignores every tool_choice but auto (Z.AI): "none" and an allowlist
+# have a client-side form; "required" cannot be forced and is refused.
+function forced_choice_prepare(l, r)
+    tc=r.config.tool_choice
+    tc.mode=="required" && throw(UnsupportedFeatureError(
+        "$(l.provider): tool_choice mode='required' is silently ignored by this server (only 'auto' is honoured) and a forced call cannot be reproduced client-side";
+        provider=l.provider, feature="config.tool_choice.mode"))
+    tools=if tc.mode=="none"
+        adapt!("config.tool_choice.mode", "client_side", "this server ignores tool_choice='none'; no tools were sent, which is the same outcome"; asked="none", applied="no tools sent")
+        ()
+    else
+        kept=Tuple(t for t in r.tools if t isa FunctionTool && t.name in tc.allowed)
+        adapt!("config.tool_choice.allowed", "client_side", "this server ignores tool_choice allowlists; only the allowed tools were sent, which is what the allowlist means"; asked=collect(tc.allowed), applied=[t.name for t in kept])
+        kept
+    end
+    return reconstruct(r; tools, config=reconstruct(r.config; tool_choice=reconstruct(tc; mode="auto", allowed=())))
 end
 function openai_payload(l, r; stream=false, chat=false)
     c=effective_compat(l, r)
-    config=r.config
-    if l.provider=="xai"
-        config.reasoning!==nothing &&
-            config.reasoning.effort=="off" &&
-            unsupported(l.provider, "reasoning off")
-        config.logprobs===nothing || unsupported(l.provider, "logprobs")
-        tc=config.tool_choice
-        tc===nothing ||
-            isempty(tc.allowed) ||
-            (length(tc.allowed)==1 && tc.mode=="required") ||
-            unsupported(l.provider, "tool allowlists")
-        tc!==nothing &&
-            tc.mode=="required" &&
-            config.response_format!==nothing &&
-            unsupported(l.provider, "forced tools with structured output")
+    l.provider=="xai" && (r=xai_prepare(l, r))
+    if chat && c.forced_tool_choice=="reject" && r.config.tool_choice!==nothing &&
+        (r.config.tool_choice.mode!="auto" || !isempty(r.config.tool_choice.allowed))
+        r=forced_choice_prepare(l, r)
     end
-    rows=openai_messages(l, r, c; chat)
+    config=r.config
+    boundary=adapted_breakpoint(r, c.cache_control)
+    rows=openai_messages(l, r, c; chat, boundary)
     d=obj("model"=>r.model, (chat ? "messages" : "input")=>rows)
     if !chat || stream
         d["stream"]=stream
@@ -394,11 +464,28 @@ function openai_payload(l, r; stream=false, chat=false)
         value=getfield(config, key)
         value===nothing || (d[string(key)]=value)
     end
+    for key in (:seed, :frequency_penalty, :presence_penalty)
+        value=getfield(config, key)
+        value===nothing && continue
+        if chat
+            d[string(key)]=value
+        else
+            adapt!("config.$(key)", "dropped", "the Responses wire has no $(key) field (the Chat Completions dialect carries it)"; asked=value)
+        end
+    end
     config.user_id===nothing || (d[chat ? c.user_field : "safety_identifier"]=config.user_id)
-    config.top_k===nothing || unsupported(l.provider, "top_k")
+    config.top_k===nothing || adapt!(
+        "config.top_k", "dropped",
+        chat ? "the Chat Completions wire has no top_k (Anthropic and Gemini carry it; servers that accept it take it through extensions)" :
+               "the Responses wire has no top_k (Anthropic and Gemini carry it)";
+        asked=config.top_k,
+    )
     if !isempty(config.stop)
-        chat || unsupported(l.provider, "stop sequences on Responses")
-        d["stop"]=collect(config.stop)
+        if chat
+            d["stop"]=collect(config.stop)
+        else
+            adapt!("config.stop", "client_side", "the Responses wire has no stop field; the reply is streamed and the connection closed at the first stop sequence (whether the provider then stops generating, and billing, is its own behaviour); the usage report rides only the final frame, so it is not reported when the cut happens (never estimated)"; asked=collect(config.stop), applied=collect(config.stop))
+        end
     end
     if config.logprobs!==nothing
         if chat
@@ -431,22 +518,18 @@ function openai_payload(l, r; stream=false, chat=false)
     end
     tc=config.tool_choice
     if tc!==nothing
-        chat &&
-            c.forced_tool_choice=="reject" &&
-            (tc.mode!="auto" || !isempty(tc.allowed)) &&
-            unsupported(l.provider, "forced tool choice")
         d["tool_choice"]=openai_choice(r, c, l.provider; chat)
         tc.parallel===nothing || (d["parallel_tool_calls"]=tc.parallel)
     end
     if config.response_format!==nothing
-        chat &&
-            c.json_schema=="reject" &&
-            config.response_format["type"]=="json_schema" &&
-            unsupported(l.provider, "JSON schema enforcement")
-        d[chat ? "response_format" : "text"]=structured_openai(config.response_format; chat)
+        if chat && c.json_schema=="reject" && config.response_format["type"]=="json_schema"
+            adapt!("config.response_format", "dropped", "this server accepts response_format type 'json_schema' and does not apply it; use {'type': 'json_object'} and describe the shape in the prompt"; asked=config.response_format)
+        else
+            d[chat ? "response_format" : "text"]=structured_openai(config.response_format; chat)
+        end
     end
     openai_reasoning!(d, config.reasoning, c, l; chat)
-    openai_cache!(d, r, c, l.provider)
+    openai_cache!(d, r, c, l.provider; boundary)
     c.routing===nothing || (d["provider"]=c.routing)
     for (key, value) in something(config.extensions, obj())
         key in (
@@ -508,6 +591,14 @@ function anthropic_part(l, p, c)
     end
     return obj("type"=>"text", "text"=>parts_to_text((p,); provider=l.provider))
 end
+# Output ceilings by model class, for the max_tokens the Messages API requires.
+function anthropic_default_max_tokens(model)
+    lowered=lowercase(model)
+    for (marker, ceiling) in (("claude-3-haiku", 4096), ("claude-3-opus", 4096), ("claude-3-sonnet", 4096), ("claude-3-5-", 8192), ("claude-3.5-", 8192))
+        occursin(marker, lowered) && return ceiling
+    end
+    return 16384
+end
 function anthropic_payload(l, r; stream=false)
     c=effective_compat(l, r)
     config=r.config
@@ -528,45 +619,64 @@ function anthropic_payload(l, r; stream=false)
         end
         push!(messages, obj("role"=>m.role=="assistant" ? "assistant" : "user", "content"=>blocks))
     end
+    # MAP-13: the Messages API cannot restrict to a subset of the declared tools;
+    # only the allowed ones are sent, which is what the allowlist means.
+    tools=r.tools
+    tc=config.tool_choice
+    if tc!==nothing && tc.mode!="none" && !isempty(tc.allowed) &&
+        !(length(tc.allowed)==1 && tc.mode=="required") && Set(tc.allowed)!=Set(t.name for t in r.tools)
+        tools=Tuple(t for t in r.tools if t.name in tc.allowed)
+        adapt!("config.tool_choice.allowed", "client_side", "the Messages API cannot restrict to a subset of the declared tools; only the allowed tools were sent, which is what the allowlist means"; asked=collect(tc.allowed), applied=[t.name for t in tools])
+    end
     reasoning=config.reasoning
     active=reasoning!==nothing && reasoning.effort!="off"
     adaptive=active && (
         c.thinking_format in ("deepseek", "adaptive", "effort") || anthropic_adaptive(r.model)
     )
-    budget=if active && !adaptive
-        something(reasoning.thinking_budget, EFFORT_BUDGETS[reasoning.effort])
-    else
-        nothing
-    end
+    effort=reasoning===nothing ? nothing : reasoning.effort
+    thinking_budget=reasoning===nothing ? nothing : reasoning.thinking_budget
     if active
-        reasoning.summary in ("concise", "detailed") &&
-            unsupported(l.provider, "reasoning summary detail")
-        c.reasoning_efforts===nothing ||
-            reasoning.effort in c.reasoning_efforts ||
-            unsupported(l.provider, "reasoning effort $(reasoning.effort)")
-        adaptive &&
-            reasoning.thinking_budget!==nothing &&
-            unsupported(l.provider, "thinking budget on adaptive model")
-        adaptive &&
-            c.thinking_format=="anthropic" &&
-            reasoning.effort=="minimal" &&
-            unsupported(l.provider, "minimal adaptive reasoning")
+        if c.reasoning_efforts!==nothing && !(effort in c.reasoning_efforts)
+            nearest=nearest_effort(effort, c.reasoning_efforts)
+            adapt!("config.reasoning.effort", "clamped", "this server has no '$(effort)' level (it accepts $(join(c.reasoning_efforts, ", "))) and would have accepted the word silently"; asked=effort, applied=nearest)
+            effort=nearest
+        end
+        reasoning.summary in ("concise", "detailed") && adapt!("config.reasoning.summary", "substituted", "the Messages API has no summary detail levels; it returns thinking blocks whenever thinking runs, which is 'auto'"; asked=reasoning.summary, applied="auto")
+        if adaptive
+            if thinking_budget!==nothing
+                adapt!("config.reasoning.thinking_budget", "dropped",
+                    c.thinking_format=="deepseek" ? "this server ignores budget_tokens; effort is the dial" :
+                    c.thinking_format=="adaptive" ? "this server accepts budget_tokens without translating it; effort is the dial (protocols--messages.md)" :
+                    "$(r.model) takes thinking.type 'adaptive' with output_config.effort; budget_tokens is rejected by the API (live 2026-09-02)";
+                    asked=thinking_budget)
+                thinking_budget=nothing
+            end
+            if c.thinking_format=="anthropic" && effort=="minimal"
+                adapt!("config.reasoning.effort", "clamped", "this model class has no 'minimal' level (output_config.effort is low|medium|high|xhigh|max); 'low' is the floor"; asked="minimal", applied="low")
+                effort="low"
+            end
+        end
+    end
+    budget=active && !adaptive ? something(thinking_budget, EFFORT_BUDGETS[effort]) : nothing
+    # The Messages API requires max_tokens; when none was set, the class default is used and recorded.
+    visible=config.max_tokens
+    if visible===nothing
+        visible=anthropic_default_max_tokens(r.model)
+        adapt!("config.max_tokens", "defaulted", "the Messages API requires max_tokens and none was set; the class default was used"; applied=visible)
     end
     d=obj(
         "model"=>r.model,
         "messages"=>messages,
         "stream"=>stream,
-        "max_tokens"=>something(config.max_tokens, 1024)+something(budget, 0),
+        "max_tokens"=>visible+something(budget, 0),
     )
     cache=config.cache
     usecache=cache!==nothing && cache.mode!="off" && c.cache_control=="anthropic"
     marker=obj("type"=>"ephemeral")
     cache!==nothing && cache.retention=="long" && (marker["ttl"]="1h")
-    # The implicit-cache fallback applies to prefix marks, not references to a
-    # stored object or an affinity key. None of the Messages bindings has a wire
-    # slot for these intents, even when its compat disables cache_control.
     if cache !== nothing
-        cache.key===nothing || unsupported(l.provider, "cache affinity key")
+        cache.key===nothing || adapt!("config.cache.key", "dropped", "the Messages API has no cache affinity key (OpenAI's prompt_cache_key); marks on blocks are its mechanism"; asked=cache.key)
+        cache.retention=="long" && c.cache_control!="anthropic" && adapt!("config.cache.retention", "dropped", "this server caches implicitly and has no cache-control TTL"; asked="long")
         cache.resource===nothing || unsupported(l.provider, "stored cache resource")
     end
     if usecache
@@ -584,11 +694,22 @@ function anthropic_payload(l, r; stream=false)
     for name in (:temperature, :top_p, :top_k)
         value=getfield(config, name)
         value===nothing && continue
-        c.sampling_params=="reject" && unsupported(l.provider, "sampling setting $name")
+        if c.sampling_params=="reject"
+            adapt!("config.$(name)", "dropped", "this server ignores sampling parameters (the model's sampling is fixed)"; asked=value)
+            continue
+        end
+        if name===:temperature && value>1.0
+            adapt!("config.temperature", "clamped", "the Messages API accepts temperature in [0, 1]; the canonical range is [0, 2]"; asked=value, applied=1.0)
+            value=1.0
+        end
         d[string(name)]=value
     end
+    for name in (:seed, :frequency_penalty, :presence_penalty)
+        value=getfield(config, name)
+        value===nothing || adapt!("config.$(name)", "dropped", "the Messages API has no $(name) field"; asked=value)
+    end
     isempty(config.stop) || (d["stop_sequences"]=collect(config.stop))
-    if !isempty(r.tools)
+    if !isempty(tools)
         d["tools"]=[
             if t isa FunctionTool
                 obj("name"=>t.name, "description"=>t.description, "input_schema"=>t.parameters)
@@ -597,23 +718,18 @@ function anthropic_payload(l, r; stream=false)
                     obj("type"=>get(ANTHROPIC_BUILTINS, t.name, t.name), "name"=>t.name),
                     something(t.config, obj()),
                 )
-            end for t in r.tools
+            end for t in tools
         ]
     end
-    tc=config.tool_choice
     if tc!==nothing
         choice=obj("type"=>tc.mode=="required" ? "any" : tc.mode)
-        if !isempty(tc.allowed)
-            if length(tc.allowed)==1 && tc.mode=="required"
-                choice=obj("type"=>"tool", "name"=>only(tc.allowed))
-            elseif Set(tc.allowed)!=Set(t.name for t in r.tools)
-                unsupported(l.provider, "proper-subset tool allowlist")
-            end
+        !isempty(tc.allowed) && length(tc.allowed)==1 && tc.mode=="required" &&
+            (choice=obj("type"=>"tool", "name"=>only(tc.allowed)))
+        if c.parallel_tool_calls=="reject" && tc.parallel!==nothing
+            adapt!("config.tool_choice.parallel", "dropped", "this server accepts disable_parallel_tool_use and does not apply it (guide--anthropic-api.md); the model may return several calls"; asked=tc.parallel)
+        elseif tc.parallel===false && tc.mode!="none"
+            choice["disable_parallel_tool_use"]=true
         end
-        c.parallel_tool_calls=="reject" &&
-            tc.parallel!==nothing &&
-            unsupported(l.provider, "parallel tool setting")
-        tc.parallel===false && tc.mode!="none" && (choice["disable_parallel_tool_use"]=true)
         d["tool_choice"]=choice
     end
     if reasoning!==nothing
@@ -622,19 +738,25 @@ function anthropic_payload(l, r; stream=false)
         elseif adaptive
             c.thinking_format=="effort" ||
                 (d["thinking"]=obj("type"=>c.thinking_format=="deepseek" ? "enabled" : "adaptive"))
-            d["output_config"]=obj("effort"=>reasoning.effort)
+            d["output_config"]=obj("effort"=>effort)
         else
             d["thinking"]=obj("type"=>"enabled", "budget_tokens"=>budget)
         end
     end
     if config.response_format!==nothing
-        (c.structured_output!="reject" && config.response_format["type"]=="json_schema") ||
-            unsupported(l.provider, "structured output shape")
-        output=get!(d, "output_config", obj())
-        output["format"]=obj("type"=>"json_schema", "schema"=>config.response_format["schema"])
+        if c.structured_output=="reject"
+            adapt!("config.response_format", "dropped", "this server accepts output_config.format and does not apply it; describe the shape in the prompt"; asked=config.response_format)
+        else
+            config.response_format["type"]=="json_schema" || throw(UnsupportedFeatureError(
+                "anthropic: response_format json_object is not supported — the Messages API has no any-JSON mode; give a json_schema (objects need additionalProperties: false)";
+                provider=l.provider, feature="config.response_format"))
+            output=get!(d, "output_config", obj())
+            output["format"]=obj("type"=>"json_schema", "schema"=>config.response_format["schema"])
+        end
     end
-    config.store===nothing || unsupported(l.provider, "response storage setting")
-    config.logprobs===nothing || unsupported(l.provider, "token log probabilities")
+    config.store===false && adapt!("config.store", "satisfied", "the Messages API has no stored-response object to opt out of; nothing retrievable is kept"; asked=false)
+    config.store===true && adapt!("config.store", "dropped", "the Messages API has no stored-response object to opt into (OpenAI and Gemini carry `store`)"; asked=true)
+    config.logprobs===nothing || adapt!("config.logprobs", "dropped", "the Messages API does not expose token log probabilities (OpenAI and Gemini carry them); Response.logprobs will be absent"; asked=config.logprobs)
     config.service_tier===nothing || (d["service_tier"]=config.service_tier)
     config.user_id===nothing || (d["metadata"]=obj("user_id"=>config.user_id))
     for (key, value) in something(config.extensions, obj())
@@ -743,9 +865,8 @@ function gemini_payload(l, r)
     resource=nothing
     from=1
     if cache!==nothing && cache.mode!="off"
-        cache.key===nothing || unsupported(l.provider, "cache affinity key")
-        cache.retention in (nothing, "short") ||
-            unsupported(l.provider, "in-request cache retention")
+        cache.key===nothing || adapt!("config.cache.key", "dropped", "GenerateContent has no cache affinity key; implicit caching applies, and a stored cache (lm.cache(prefix), cache.resource) is the explicit tier"; asked=cache.key)
+        cache.retention in (nothing, "short") || adapt!("config.cache.retention", "dropped", "GenerateContent takes no lifetime in-request; it belongs to the stored cache (cache_create(..., ttl_seconds=...) / cache_update)"; asked=cache.retention)
         resource=cache.resource
         resource===nothing ||
             cache.prefix_until_index===nothing ||
@@ -770,6 +891,9 @@ function gemini_payload(l, r)
         (:top_p, "topP"),
         (:top_k, "topK"),
         (:max_tokens, "maxOutputTokens"),
+        (:seed, "seed"),
+        (:frequency_penalty, "frequencyPenalty"),
+        (:presence_penalty, "presencePenalty"),
     )
         v=getfield(config, field)
         v===nothing || (gen[wire]=v isa AbstractFloat && isinteger(v) ? Int(v) : v)
@@ -790,21 +914,30 @@ function gemini_payload(l, r)
     if reasoning!==nothing
         thinking=obj()
         level=gemini_level(r.model)
-        if reasoning.effort=="off"
-            level && unsupported(l.provider, "reasoning off on Gemini 3")
+        effort=reasoning.effort
+        if effort=="off" && level
+            adapt!("config.reasoning.effort", "substituted", "$(r.model) cannot disable thinking (the Gemini 3 class honours no off switch); the lowest level was sent and the thinking spend is visible in usage"; asked="off", applied="minimal")
+            effort="minimal"
+        end
+        if effort=="off"
             thinking["thinkingBudget"]=0
         else
-            reasoning.summary in ("concise", "detailed") &&
-                unsupported(l.provider, "reasoning summary detail")
-            reasoning.summary===nothing || (thinking["includeThoughts"]=true)
+            summary=reasoning.summary
+            if summary in ("concise", "detailed")
+                adapt!("config.reasoning.summary", "substituted", "GenerateContent has includeThoughts only, no detail levels; 'auto' shows the thoughts"; asked=summary, applied="auto")
+                summary="auto"
+            end
+            summary===nothing || (thinking["includeThoughts"]=true)
             if reasoning.thinking_budget!==nothing
                 thinking["thinkingBudget"]=reasoning.thinking_budget
             elseif level
-                reasoning.effort in ("xhigh", "max") &&
-                    unsupported(l.provider, "reasoning effort $(reasoning.effort) on Gemini 3")
-                thinking["thinkingLevel"]=reasoning.effort
+                if effort in ("xhigh", "max")
+                    adapt!("config.reasoning.effort", "clamped", "the Gemini 3 class has thinkingLevel minimal|low|medium|high; 'high' is the ceiling"; asked=effort, applied="high")
+                    effort="high"
+                end
+                thinking["thinkingLevel"]=effort
             else
-                thinking["thinkingBudget"]=EFFORT_BUDGETS[reasoning.effort]
+                thinking["thinkingBudget"]=EFFORT_BUDGETS[effort]
             end
         end
         gen["thinkingConfig"]=thinking
@@ -814,7 +947,7 @@ function gemini_payload(l, r)
         isempty(r.tools) || (d["tools"]=gemini_tools(r.tools))
         tc=config.tool_choice
         if tc!==nothing
-            tc.parallel===false && unsupported(l.provider, "parallel=false")
+            tc.parallel===false && adapt!("config.tool_choice.parallel", "dropped", "GenerateContent has no parallel-tool-calls knob and may return several calls (OpenAI and Anthropic carry it)"; asked=false)
             byname=Dict(t.name=>t for t in r.tools)
             any(n->byname[n] isa BuiltinTool, tc.allowed) &&
                 unsupported(l.provider, "builtin tool forcing")
@@ -833,7 +966,7 @@ function gemini_payload(l, r)
     elseif config.tool_choice!==nothing
         unsupported(l.provider, "tool choice alongside a stored cache resource")
     end
-    config.user_id===nothing || unsupported(l.provider, "end-user attribution")
+    config.user_id===nothing || adapt!("config.user_id", "dropped", "GenerateContent has no end-user attribution field (OpenAI and Anthropic carry it)"; asked=config.user_id)
     config.store===nothing || (d["store"]=config.store)
     config.service_tier===nothing || (d["serviceTier"]=config.service_tier)
     ext=something(config.extensions, obj())
@@ -852,9 +985,11 @@ function build_payload(l, r; stream=false)
     l.dialect=="anthropic" && return anthropic_payload(l, r; stream)
     return gemini_payload(l, r)
 end
-function build_request(l::ProviderLM, r::Request; stream=false)
+build_request(l::ProviderLM, r::Request; stream=false) = first(build_request_adapted(l, r; stream))
+# The wire request and the MAP-13 record of what its build adapted.
+function build_request_adapted(l::ProviderLM, r::Request; stream=false)
     require_surface(l, stream ? :stream : :complete)
-    payload=build_payload(l, r; stream)
+    payload, records=collecting(()->build_payload(l, r; stream), l.adaptations, l.provider)
     endpoint=if l.dialect=="openai-responses"
         "responses"
     elseif l.dialect=="openai-chat"
@@ -876,5 +1011,15 @@ function build_request(l::ProviderLM, r::Request; stream=false)
     end
     return emit(
         l; url, payload, params, headers=base_headers(l; request=r), endpoint, stream, model=r.model
-    )
+    ), records
+end
+"""
+    plan(client, request)
+
+What a call with this request would adapt (MAP-13), with no network and no credential
+read. Raises what the call would raise; returns the full record under every policy.
+"""
+function plan(l::ProviderLM, r::Request; stream=false)
+    require_surface(l, stream ? :stream : :complete)
+    return last(collecting(()->build_payload(l, r; stream), l.adaptations, l.provider))
 end

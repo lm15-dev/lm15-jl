@@ -14,7 +14,15 @@
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "none",
+      "thinking_format": "reasoning_effort",
+      "reasoning_efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
       "tool_result_name": "omit",
       "strict_tools": "omit",
       "cache_control": "none",
@@ -69,7 +77,8 @@
       "tool_result_name": "omit",
       "strict_tools": "omit",
       "cache_control": "none",
-      "tool_result_media": "reject"
+      "tool_result_media": "reject",
+      "token_scoring": "logprob_token_ids"
     },
     "sglang": {
       "instruction_role": "system",

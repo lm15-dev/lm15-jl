@@ -15,6 +15,7 @@ include("json.jl")
 include("errors.jl")
 include("types.jl")
 include("validation.jl")
+include("adaptation.jl")
 include("serde.jl")
 include("compat.jl")
 include("access.jl")
@@ -56,6 +57,8 @@ export Part,
     LiveServerEvent,
     Request,
     Response,
+    Adaptation,
+    plan,
     Message,
     Config,
     Usage,

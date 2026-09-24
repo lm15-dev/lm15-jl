@@ -18,6 +18,7 @@ Base.@kwdef struct ErrorMetadata
     providers::Tuple = ()
     path::String = ""
     lock_path::String = ""
+    feature::Union{Nothing,String} = nothing
     partial::Any = nothing
     part_index::Union{Nothing,Int} = nothing
     cleanup_errors::Vector{Exception} = Exception[]

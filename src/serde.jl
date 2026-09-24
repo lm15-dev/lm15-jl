@@ -122,6 +122,9 @@ function from_dict(::Type{T}, data::AbstractDict) where {T<:Canonical}
             end
         elseif name === :system
             kw[name] = v isa AbstractVector ? read_parts(v) : v
+        elseif name === :adaptations
+            v isa AbstractVector || throw(ArgumentError("adaptations must be an array"))
+            kw[name] = Tuple(from_dict(Adaptation, item) for item in v)
         elseif name in (:messages, :requests, :tools, :images, :top, :items) ||
             (name === :logprobs && C <: Union{Response,TextDelta})
             if v === nothing && name === :logprobs

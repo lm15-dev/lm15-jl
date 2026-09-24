@@ -72,6 +72,8 @@ for statement in tree.body:
         kwargs = {k.arg: literal(k.value) for k in call.keywords}
         if helper == "_adapter_owned":
             provider, dialect = literal(call.args[0]), literal(call.args[1])
+            if provider not in owned:
+                continue  # a provider with a dialect of its own that Julia does not implement (typesafe)
             policy = values[owned[provider]]
         else:
             policy = literal(call.args[0])

@@ -157,6 +157,9 @@ end
     temperature::Maybe{Float64} = nothing
     top_p::Maybe{Float64} = nothing
     top_k::Maybe{Int} = nothing
+    seed::Maybe{Int} = nothing
+    frequency_penalty::Maybe{Float64} = nothing
+    presence_penalty::Maybe{Float64} = nothing
     stop::Tuple = ()
     response_format::Maybe{JsonObject} = nothing
     tool_choice::Maybe{ToolChoice} = nothing
@@ -210,6 +213,15 @@ end
     usage::Usage = Usage()
     logprobs::Maybe{Tuple} = nothing
     provider_data::Maybe{JsonObject} = nothing
+    adaptations::Tuple = ()
+end
+# MAP-13: one thing the wire got that differs from what was asked.
+@canonical Adaptation begin
+    field::String
+    action::String
+    reason::String
+    asked::Any = nothing
+    applied::Any = nothing
 end
 @canonical TextDelta <: Delta begin
     text::String = ""
@@ -261,6 +273,7 @@ end
 @canonical StreamStartEvent <: StreamEvent begin
     id::Maybe{String} = nothing
     model::Maybe{String} = nothing
+    adaptations::Tuple = ()
     type::String = "start"
 end
 @canonical StreamDeltaEvent <: StreamEvent begin

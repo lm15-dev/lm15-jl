@@ -97,17 +97,22 @@ end
     @test_throws ArgumentError OpenAIChatLM(api_key="explicit", compat=invalid)
 end
 
-@testset "implicit caching never discards a stored-resource or affinity-key intent" begin
+@testset "implicit caching never discards a stored-resource or affinity-key intent silently" begin
     for (provider, model) in (
         ("meta-anthropic", "muse-spark"),
         ("deepseek-anthropic", "deepseek-v4-flash"),
         ("moonshotai-anthropic", "kimi-k3"),
     )
         client = ProviderLM(provider; api_key="explicit")
-        for cache in (CacheConfig(resource="cachedContents/opaque"), CacheConfig(key="affinity"))
-            req = Request(model, user("suffix"); config=Config(; cache))
-            @test_throws UnsupportedFeatureError build_request(client, req)
-        end
+        # A stored object the program references does not exist here: refused (MAP-13 rule 4b).
+        req = Request(model, user("suffix"); config=Config(; cache=CacheConfig(resource="cachedContents/opaque")))
+        @test_throws UnsupportedFeatureError build_request(client, req)
+        # An affinity key is a hint with no home: dropped and recorded, refused only under "refuse".
+        req = Request(model, user("suffix"); config=Config(; cache=CacheConfig(key="affinity")))
+        records = plan(client, req)
+        @test any(a -> a.field == "config.cache.key" && a.action == "dropped" && a.asked == "affinity", records)
+        strict = ProviderLM(provider; api_key="explicit", adaptations="refuse")
+        @test_throws UnsupportedFeatureError build_request(strict, req)
     end
 end
 

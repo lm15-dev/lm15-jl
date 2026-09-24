@@ -18,6 +18,12 @@ const INGEST_CONFIG_KEYS=(
     "max_tokens",
     "temperature",
     "top_p",
+    "top_k",
+    "seed",
+    "frequency_penalty",
+    "presence_penalty",
+    "functions",
+    "function_call",
     "stop",
     "logprobs",
     "top_logprobs",
@@ -39,13 +45,10 @@ const INGEST_CONFIG_KEYS=(
 )
 const INGEST_REFUSED_KEYS=(
     "n",
-    "functions",
-    "function_call",
     "audio",
     "modalities",
     "prediction",
     "web_search_options",
-    "top_k",
 )
 function ingest_keys(d, allowed, where)
     d isa AbstractDict || throw(ArgumentError("$where must be an object"))
@@ -519,14 +522,34 @@ function request_from_openai_chat(body::AbstractDict; compat=nothing)
             unsupported("openai-chat", "unrecognized request key $key")
     end
     system, messages, stable, boundary=ingest_messages(get(body, "messages", nothing))
-    tools=ingest_tools(get(body, "tools", nothing), c)
+    # The deprecated functions / function_call shape is a spelling of tools /
+    # tool_choice, and is translated (MAP-13: a spelling change is never a refusal).
+    haskey(body, "functions") && haskey(body, "tools") && throw(ArgumentError("functions and tools cannot both be given"))
+    haskey(body, "function_call") && haskey(body, "tool_choice") && throw(ArgumentError("function_call and tool_choice cannot both be given"))
+    raw_tools=get(body, "tools", nothing)
+    if haskey(body, "functions")
+        body["functions"] isa AbstractVector || throw(ArgumentError("functions must be an array"))
+        raw_tools=[obj("type"=>"function", "function"=>fn) for fn in body["functions"]]
+    end
+    raw_choice=get(body, "tool_choice", nothing)
+    if haskey(body, "function_call")
+        fc=body["function_call"]
+        raw_choice=if fc in ("none", "auto")
+            fc
+        elseif fc isa AbstractDict && haskey(fc, "name")
+            obj("type"=>"function", "function"=>obj("name"=>fc["name"]))
+        else
+            throw(ArgumentError("function_call must be 'none', 'auto', or an object with a name"))
+        end
+    end
+    tools=ingest_tools(raw_tools, c)
     kw=Dict{Symbol,Any}()
     if haskey(body, "max_tokens") && haskey(body, "max_completion_tokens")
         body["max_tokens"]==body["max_completion_tokens"] ||
             throw(ArgumentError("max token spellings disagree"))
     end
     kw[:max_tokens]=get(body, "max_completion_tokens", get(body, "max_tokens", nothing))
-    for key in ("temperature", "top_p", "service_tier", "store", "stop")
+    for key in ("temperature", "top_p", "top_k", "seed", "frequency_penalty", "presence_penalty", "service_tier", "store", "stop")
         haskey(body, key) && (kw[Symbol(key)]=body[key])
     end
     logprobs=get(body, "logprobs", nothing)
@@ -537,9 +560,7 @@ function request_from_openai_chat(body::AbstractDict; compat=nothing)
         haskey(body, "top_logprobs") && throw(ArgumentError("top_logprobs needs logprobs=true"))
     end
     haskey(body, "response_format") && (kw[:response_format]=ingest_format(body["response_format"]))
-    kw[:tool_choice]=ingest_choice(
-        get(body, "tool_choice", nothing), get(body, "parallel_tool_calls", nothing)
-    )
+    kw[:tool_choice]=ingest_choice(raw_choice, get(body, "parallel_tool_calls", nothing))
     userkeys=[k for k in ("user", "safety_identifier", "user_id") if haskey(body, k)]
     length(userkeys)<=1 || throw(ArgumentError("multiple end-user identifiers"))
     "user_id" in userkeys &&
@@ -549,6 +570,8 @@ function request_from_openai_chat(body::AbstractDict; compat=nothing)
     reasoning, ext=ingest_reasoning(body, c)
     kw[:reasoning]=reasoning
     for key in INGEST_EXTENSION_KEYS
+        # seed and the two penalties are canonical Config fields (promoted 2026-09-14).
+        key in ("seed", "frequency_penalty", "presence_penalty") && continue
         haskey(body, key) && (ext[key]=body[key])
     end
     kw[:extensions]=ext

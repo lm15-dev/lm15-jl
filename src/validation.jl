@@ -238,7 +238,14 @@ function validate(x::Canonical)
         x.mode == "none" &&
             (!isempty(x.allowed) || x.parallel !== nothing) &&
             throw(ArgumentError("tool choice none cannot carry allowed or parallel"))
+    elseif x isa Adaptation
+        isempty(x.field) && throw(ArgumentError("Adaptation.field must be non-empty"))
+        x.action in ADAPTATION_ACTIONS || throw(ArgumentError("unsupported adaptation action: $(x.action)"))
+        isempty(x.reason) && throw(ArgumentError("Adaptation.reason must be non-empty"))
     elseif x isa Config
+        for (name, value) in ((:frequency_penalty, x.frequency_penalty), (:presence_penalty, x.presence_penalty))
+            value === nothing || -2 <= value <= 2 || throw(ArgumentError("$name must lie in [-2,2]"))
+        end
         x.top_p !== nothing &&
             !(0 <= x.top_p <= 1) &&
             throw(ArgumentError("top_p must lie in [0,1]"))

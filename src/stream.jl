@@ -146,7 +146,9 @@ function source_closer(source)
     end
 end
 
-function coalesce_stream(source; model=nothing)
+function coalesce_stream(source; model=nothing, adaptations=())
+    # MAP-13: the adaptations are known before the first byte and ride the first event.
+    stamp(e)=isempty(adaptations) ? e : reconstruct(e; adaptations=Tuple(adaptations))
     EventStream() do emit, cancel
         close_source = source_closer(source)
         push!(cancel, close_source)
@@ -163,7 +165,7 @@ function coalesce_stream(source; model=nothing)
                 if event isa StreamStartEvent
                     started && continue
                     started=true
-                    emit(event)
+                    emit(stamp(event))
                 elseif event isa StreamEndEvent
                     saw_end=true
                     event.finish_reason===nothing || (finish=event.finish_reason)
@@ -181,14 +183,14 @@ function coalesce_stream(source; model=nothing)
                     end
                 else
                     if !started && event isa StreamDeltaEvent
-                        emit(StreamStartEvent(; model))
+                        emit(stamp(StreamStartEvent(; model)))
                         started=true
                     end
                     emit(event)
                 end
             end
             if saw_end
-                started || emit(StreamStartEvent(; model))
+                started || emit(stamp(StreamStartEvent(; model)))
                 emit(StreamEndEvent(; finish_reason=finish, usage, provider_data=data))
                 completed = true
             end
@@ -212,8 +214,9 @@ function coalesce_stream(source; model=nothing)
 end
 function stream(l::ProviderLM, r::Request)
     require_surface(l, :stream)
+    # Built before the first event, so a refusal (or adaptations="refuse") raises here.
+    wire, records=build_request_adapted(l, r; stream=true)
     raw=EventStream() do emit, cancel
-        wire=build_request(l, r; stream=true)
         open_response(client_transport(l), wire) do head, io
             stop_read = source_closer(io)
             push!(cancel, stop_read)
@@ -232,7 +235,9 @@ function stream(l::ProviderLM, r::Request)
             end
         end
     end
-    return coalesce_stream(raw; model=r.model)
+    events=coalesce_stream(raw; model=r.model, adaptations=visible_adaptations(l, records))
+    client_side_stop(records) && return truncate_stream_at_stop(events, r.config.stop)
+    return events
 end
 function parse_stream_events(l, r, frame::SSEEvent)
     isempty(frame.data) && return StreamEvent[]
@@ -663,6 +668,7 @@ Base.@kwdef mutable struct StreamAccumulator
     slots::Dict{Int,StreamSlot} = Dict{Int,StreamSlot}()
     continuation::Vector{ContinuationState} = ContinuationState[]
     logprobs::Vector{TokenLogprob} = TokenLogprob[]
+    adaptations::Tuple = ()
 end
 StreamAccumulator(r::Request) = StreamAccumulator(; request=r)
 function Base.push!(acc::StreamAccumulator, event::StreamEvent)
@@ -670,6 +676,7 @@ function Base.push!(acc::StreamAccumulator, event::StreamEvent)
     if event isa StreamStartEvent
         event.id===nothing || (acc.id=event.id)
         event.model===nothing || (acc.model=event.model)
+        isempty(event.adaptations) || (acc.adaptations=event.adaptations)
     elseif event isa StreamEndEvent
         event.finish_reason===nothing || (acc.finish_reason=event.finish_reason)
         event.usage===nothing || (acc.usage=event.usage)
@@ -833,6 +840,7 @@ function assemble(acc; skip=Set{Int}())
         usage=acc.usage,
         logprobs=isempty(acc.logprobs) ? nothing : Tuple(acc.logprobs),
         provider_data=acc.provider_data,
+        adaptations=acc.adaptations,
     )
 end
 function response(acc::StreamAccumulator)
@@ -1064,5 +1072,74 @@ function response_to_events(answer::Response)
                 provider_data=answer.provider_data,
             ),
         )
+    end
+end
+
+# MAP-13 client-side stop: text deltas form one stream; text that could still
+# begin a stop sequence is held back, the event holding a match is cut there,
+# an end event with finish_reason "stop" follows, and the source is closed.
+function first_stop(text, stops)
+    best=nothing
+    for s in stops
+        r=findfirst(s, text)
+        r===nothing && continue
+        (best===nothing || first(r)<best) && (best=first(r))
+    end
+    return best
+end
+is_text_event(e)=e isa StreamDeltaEvent && e.delta isa TextDelta
+function truncate_stream_at_stop(events, stop)
+    stops=[String(s) for s in stop if !isempty(s)]
+    isempty(stops) && return events
+    hold=maximum(length, stops)-1
+    return EventStream() do emit, cancel
+        close_source=source_closer(events)
+        push!(cancel, close_source)
+        held=StreamEvent[]
+        take!(count; cutting=false)=begin
+            while !isempty(held)
+                e=first(held)
+                if !is_text_event(e)
+                    emit(popfirst!(held)); continue
+                end
+                t=e.delta.text
+                cutting && count==0 && break
+                if length(t)<=count
+                    emit(popfirst!(held)); count-=length(t)
+                elseif cutting
+                    # A cut delta keeps no token scores: a score never describes a fragment.
+                    cut=String(first(t, count))
+                    emit(reconstruct(e; delta=reconstruct(e.delta; text=cut, logprobs=())))
+                    break
+                else
+                    break
+                end
+            end
+        end
+        try
+            for event in events
+                if event isa Union{StreamEndEvent,StreamErrorEvent}
+                    foreach(emit, held); empty!(held)
+                    emit(event)
+                    continue
+                end
+                if !is_text_event(event)
+                    isempty(held) ? emit(event) : push!(held, event)
+                    continue
+                end
+                push!(held, event)
+                buffered=join(e.delta.text for e in held if is_text_event(e))
+                hit=first_stop(buffered, stops)
+                if hit!==nothing
+                    take!(length(buffered[1:prevind(buffered, hit)]); cutting=true)
+                    empty!(held)
+                    emit(StreamEndEvent(; finish_reason="stop"))
+                    return nothing
+                end
+                take!(max(0, length(buffered)-hold))
+            end
+        finally
+            close_source()
+        end
     end
 end

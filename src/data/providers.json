@@ -515,11 +515,14 @@
             "env": [],
             "default": "https://ai.azure.com/.default"
           }
+        ],
+        "endpoint_env": [
+          "AZURE_OPENAI_ENDPOINT"
         ]
       }
     },
     "console_url": "https://portal.azure.com/",
-    "note": "Azure OpenAI v1 Responses wire ({resource}.openai.azure.com; model = deployment name; api-key or Entra token)"
+    "note": "Azure OpenAI v1 Responses wire ({resource}.openai.azure.com, or AZURE_OPENAI_ENDPOINT = the Foundry root the console shows; model = deployment name; api-key or Entra token)"
   },
   {
     "id": "azure-chat",
@@ -565,12 +568,15 @@
             "env": [],
             "default": "https://ai.azure.com/.default"
           }
+        ],
+        "endpoint_env": [
+          "AZURE_OPENAI_ENDPOINT"
         ]
       }
     },
     "compat": "openai",
     "console_url": "https://portal.azure.com/",
-    "note": "Azure OpenAI v1 Chat Completions wire (same resource; also Foundry-sold models such as DeepSeek and Grok)"
+    "note": "Azure OpenAI v1 Chat Completions wire (same resource or AZURE_OPENAI_ENDPOINT; also Foundry-sold models such as DeepSeek, Kimi and Grok)"
   },
   {
     "id": "azure-anthropic",
@@ -615,11 +621,14 @@
             "env": [],
             "default": "https://ai.azure.com/.default"
           }
+        ],
+        "endpoint_env": [
+          "ANTHROPIC_FOUNDRY_BASE_URL"
         ]
       }
     },
     "console_url": "https://ai.azure.com/",
-    "note": "Claude in Microsoft Foundry ({resource}.services.ai.azure.com/anthropic; api-key, x-api-key or Entra token)"
+    "note": "Claude in Microsoft Foundry ({resource}.services.ai.azure.com/anthropic or ANTHROPIC_FOUNDRY_BASE_URL; x-api-key or Entra token)"
   },
   {
     "id": "aws-anthropic",
@@ -666,7 +675,11 @@
             "workspace"
           ]
         ],
-        "sigv4_service": "aws-external-anthropic"
+        "sigv4_service": "aws-external-anthropic",
+        "endpoint_env": [
+          "AWS_ENDPOINT_URL_AWS_EXTERNAL_ANTHROPIC",
+          "AWS_ENDPOINT_URL"
+        ]
       }
     },
     "console_url": "https://console.aws.amazon.com/",
@@ -705,7 +718,11 @@
             ]
           }
         ],
-        "sigv4_service": "bedrock-mantle"
+        "sigv4_service": "bedrock-mantle",
+        "endpoint_env": [
+          "AWS_ENDPOINT_URL_BEDROCK_MANTLE",
+          "AWS_ENDPOINT_URL"
+        ]
       }
     },
     "console_url": "https://console.aws.amazon.com/bedrock/",
@@ -744,7 +761,11 @@
             ]
           }
         ],
-        "sigv4_service": "bedrock"
+        "sigv4_service": "bedrock",
+        "endpoint_env": [
+          "AWS_ENDPOINT_URL_BEDROCK_RUNTIME",
+          "AWS_ENDPOINT_URL"
+        ]
       }
     },
     "compat": "bedrock",
@@ -785,7 +806,11 @@
             ]
           }
         ],
-        "sigv4_service": "bedrock-mantle"
+        "sigv4_service": "bedrock-mantle",
+        "endpoint_env": [
+          "AWS_ENDPOINT_URL_BEDROCK_MANTLE",
+          "AWS_ENDPOINT_URL"
+        ]
       }
     },
     "compat": "bedrock-mantle",

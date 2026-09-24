@@ -11,6 +11,7 @@ struct ProviderLM{C,T,F}
     transport::T
     clock::F
     credentials_source::Symbol
+    adaptations::String
 end
 function Base.show(io::IO, l::ProviderLM)
     return print(
@@ -54,7 +55,9 @@ function ProviderLM(
     env=nothing,
     clock=time,
     upload_base_url=nothing,
+    adaptations="note",
 )
+    adaptations=check_policy(adaptations)
     named_compat = compat isa AbstractString ? compat : nothing
     definition=bound_definition(provider, access)
     policy=validate(definition.access)
@@ -191,6 +194,7 @@ function ProviderLM(
         transport,
         clock,
         source,
+        adaptations,
     )
 end
 OpenAILM(; kw...) = ProviderLM("openai"; kw...)
@@ -359,7 +363,13 @@ function complete(l::ProviderLM, request::Request)
     require_surface(l, :complete)
     validate(request)
     l.access.backend=="chatgpt-codex" && return materialize_response(stream(l, request), request)
-    return parse_response(l, request, send_request(l, build_request(l, request; stream=false)))
+    wire, records=build_request_adapted(l, request; stream=false)
+    # MAP-13: a stop sequence the wire cannot take is honoured by streaming and
+    # closing the connection at the cut; the usage report is then not reported.
+    client_side_stop(records) && return materialize_response(stream(l, request), request)
+    response=parse_response(l, request, send_request(l, wire))
+    visible=visible_adaptations(l, records)
+    return isempty(visible) || !isempty(response.adaptations) ? response : reconstruct(response; adaptations=visible)
 end
 function build_models_request(l::ProviderLM)
     require_surface(l, :models)
