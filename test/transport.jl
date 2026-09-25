@@ -139,6 +139,33 @@ end
     @test !occursin(SENTINEL, sprint(showerror, stack))
 end
 
+@testset "INV-053: requests ask for identity, so a real provider's reply is never compressed bytes" begin
+    seen = Ref("")
+    handler = function (request)
+        seen[] = HTTP.header(request, "accept-encoding")
+        HTTP.Response(
+            200,
+            ["Content-Type"=>"application/json"],
+            JSON.serialize(
+                Dict(
+                    "id"=>"local",
+                    "model"=>"local-model",
+                    "choices"=>[Dict("message"=>Dict("content"=>"hello"), "finish_reason"=>"stop")],
+                ),
+            ),
+        )
+    end
+    with_local_server(handler) do base
+        client = OpenAIChatLM(api_key=SENTINEL, base_url=base * "/v1")
+        answer = complete(client, Request("local-model", user("hello")))
+        @test text(answer) == "hello"
+        # HTTP.jl advertises gzip unless told otherwise, and a streamed read is
+        # not decompressed: every real provider's reply reached the parser as
+        # compressed bytes (found 2026-09-25 installing LM15 from GitHub).
+        @test seen[] == "identity"
+    end
+end
+
 @testset "live WebSocket connection and do-block return value" begin
     seen = Any[]
     handler = function (stream)

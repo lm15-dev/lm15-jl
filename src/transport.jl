@@ -89,10 +89,16 @@ function open_response(f, transport::HTTPTransport, request::WireRequest)
     primary = nothing
     returned = nothing
     try
+        # INV-053: ask for identity (HTTP.jl otherwise advertises gzip, and a
+        # streamed read is not decompressed: the parser saw compressed bytes
+        # from every real provider), and never let HTTP.jl decode silently.
+        headers = any(h -> lowercase(String(first(h))) == "accept-encoding", request.headers) ?
+            request.headers : vcat(collect(request.headers), ["Accept-Encoding" => "identity"])
         http_open(
             request.method,
             request.url,
-            request.headers;
+            headers;
+            decompress=false,
             status_exception=false,
             redirect=false,
             retry=false,
