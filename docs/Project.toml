@@ -9,5 +9,5 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 [compat]
 julia = "1.12"
 Documenter = "1.9"
-LM15 = "0.3"
+LM15 = "1"
 Literate = "2"

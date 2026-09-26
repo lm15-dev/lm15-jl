@@ -14,7 +14,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 julia = "1.12"
 DataFrames = "1"
-LM15 = "0.3"
+LM15 = "1"
 Literate = "2"
 OrdinaryDiffEqTsit5 = "2"
 SciMLBase = "3"

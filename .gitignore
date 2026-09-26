@@ -7,3 +7,5 @@
 /docs/build/
 *.cov
 *.mem
+Manifest.toml
+/docs/Manifest.toml

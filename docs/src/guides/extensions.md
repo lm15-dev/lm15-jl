@@ -1,8 +1,7 @@
 # Extend a Julia data or transport interface
 
 Prefer a small explicit interface to reflecting every field of an application
-object. These examples illustrate extension code; they were not executed in the
-writing pass.
+object. These examples illustrate extension code; they are not run by the documentation build.
 
 ## An application-owned result type
 

@@ -39,3 +39,12 @@ retryable
 
 `RequestTimeoutError` is an alias for [`TimeoutError`](@ref), not a separate failure
 category. Qualify it with `LM15` if another imported package uses the same name.
+
+## Added in 1.0
+
+```@docs
+AuthOperationError
+CollectionLimitError
+MissingCredentialError
+LoginCancelled
+```

@@ -889,6 +889,7 @@ function parse_gemini_response(l, r, d)
     )
 end
 function parse_response(l::ProviderLM, r::Request, response::HttpResponse)
+    r=wire_request(l, r)
     response.status>=400 && throw(
         attach_error_metadata(
             normalize_error(l, response.status, String(copy(response.body))), response

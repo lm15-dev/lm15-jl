@@ -11,8 +11,8 @@ setup, a confirmation prompt and a strict stopping rule. It can incur charges an
 is never executed by the documentation generator.
 
 [Read the complete annotated local lesson](../../../examples/tutorials/tools.jl).
-These new sources were written without running them; rendered output and live
-behavior still need their respective checks.
+The local lesson and the live one (`examples/tutorials/live-tools.jl`, run against
+OpenAI on 2026-09-26: the model asked for `square(19)` and explained 361) were run.
 
 Next: [conversion rules](../guides/conversions.md), [custom interfaces](../guides/extensions.md)
 and [privacy](../guides/privacy.md).

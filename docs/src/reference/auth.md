@@ -69,3 +69,11 @@ delete_credential!
 write_xai_credential
 login
 ```
+
+## Where a credential came from
+
+```@docs
+CredentialSource
+credential_origin
+looks_like_access_token
+```

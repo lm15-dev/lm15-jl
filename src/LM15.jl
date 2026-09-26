@@ -60,6 +60,7 @@ include("docstrings/auth.jl")
 include("docstrings/streaming.jl")
 include("docstrings/errors.jl")
 include("docstrings/advanced.jl")
+include("docstrings/managed.jl")
 
 export Part,
     Delta,

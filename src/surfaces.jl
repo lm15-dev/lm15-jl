@@ -355,7 +355,10 @@ function cache(l::ProviderLM, prefix::Request; ttl_seconds=nothing, label=nothin
 end
 function cache(router::LMRouter, prefix::Request; kw...)
     resolution=resolve(router, prefix.model)
-    return cache(lm(router, prefix.model), reconstruct(prefix; model=resolution.model); kw...)
+    cached=cache(lm(router, prefix.model), reconstruct(prefix; model=resolution.model); kw...)
+    # The routed destination survives, so a suffix built from it goes back through
+    # the same provider (2026-09-20); the wire model stays the prefix's.
+    return reconstruct(cached; provider=resolution.provider)
 end
 function cache_config(c::CachedPrefix)
     return CacheConfig(;
@@ -364,8 +367,12 @@ function cache_config(c::CachedPrefix)
     )
 end
 function request(c::CachedPrefix, messages; config=nothing)
+    model=c.provider===nothing ? c.prefix.model : "$(c.provider):$(c.prefix.model)"
     suffix=if messages isa Request
-        messages.model==c.prefix.model && messages.system===nothing && isempty(messages.tools) ||
+        bits=split(messages.model, ':'; limit=2)
+        same_route=c.provider!==nothing && length(bits)==2 &&
+            canonical_provider(bits[1])==c.provider && bits[2]==c.prefix.model
+        (messages.model==c.prefix.model || same_route) && messages.system===nothing && isempty(messages.tools) ||
             throw(ArgumentError("suffix Request cannot change model, system or tools"))
         config===nothing && (config=messages.config)
         messages.messages
@@ -380,7 +387,7 @@ function request(c::CachedPrefix, messages; config=nothing)
     config===nothing && (config=Config())
     config.cache===nothing || throw(ArgumentError("CachedPrefix owns config.cache"))
     return Request(
-        c.prefix.model,
+        model,
         (c.prefix.messages..., suffix...);
         system=c.prefix.system,
         tools=c.prefix.tools,

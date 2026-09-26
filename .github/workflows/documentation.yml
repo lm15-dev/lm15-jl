@@ -1,8 +1,12 @@
-name: Documentation preview (manual)
+name: Documentation build
 
-# Deliberately not triggered by push/PR during this unverified writing-only phase.
-# Running this workflow executes docs examples and the scientific assertions.
+# Builds the manual (doctests, examples and the scientific assertions) in a network
+# namespace and uploads the site as an artifact. Publication stays a separate,
+# explicit step (docs/deploy.jl).
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:

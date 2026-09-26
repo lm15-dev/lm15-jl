@@ -6,8 +6,7 @@ incoming strings as Julia expressions.
 
 [Read the complete annotated Julia lesson](../../../examples/scientific/units.jl).
 It uses real Unitful quantities and explicitly authored local calls. There is no
-provider request. The new tutorial source and its extraction into the assertion
-runner were not executed in this writing pass.
+provider request. The documentation build runs it with the scientific assertions.
 
 The build renders the source in the scientific environment and includes its plain
 Markdown in the final manual. Large arrays still need an explicit representation

@@ -2,7 +2,7 @@
 
 Use a project environment so your experiment does not change unrelated Julia work.
 These are installation commands, not documentation-build examples: installing
-packages needs network access. They have not been executed in this writing pass.
+packages needs network access.
 
 ## From a checkout
 
@@ -29,11 +29,10 @@ Pkg.add(url="https://github.com/lm15-dev/lm15-jl.git")
 using LM15
 ```
 
-The repository command selects its current source; it is not a promise of a
-registered or released version. Review and commit your application's `Project.toml`
-and `Manifest.toml` for reproducibility. Use an explicit reviewed `rev` if your
-project needs a fixed source revision. Do not assume `Pkg.add("LM15")` is available
-until registry publication has been confirmed.
+The repository command selects its current source. Use `rev="v1.0.0"` for the
+release, and commit your application's `Project.toml` and `Manifest.toml` for
+reproducibility. Once LM15 is in Julia's General registry, `Pkg.add("LM15")` works too;
+until then it does not.
 
 ## Optional scientific packages
 

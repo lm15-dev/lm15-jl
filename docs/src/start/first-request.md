@@ -4,8 +4,8 @@
 
 **Requires:** LM15 in your project, a provider account, an allowed model and its key.
 **Effect:** sends the prompt to the chosen provider and may incur charges.
-This live example is not executed by the documentation build and was not run during
-this writing pass.
+This live example is not executed by the documentation build; it was run once against
+OpenAI on 2026-09-26.
 
 ## Configure the account outside your source file
 

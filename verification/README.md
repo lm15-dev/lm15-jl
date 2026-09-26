@@ -1,8 +1,9 @@
-# Verification record
+# Verification record (historical)
 
-The later documentation-writing revision was not tested or built. Its new source
-help, example extraction and documentation scripts are not covered by these older
-records. No recorded log, count or expected result was changed for that revision.
+These are records of earlier source snapshots, kept unchanged. The checks for the
+1.0.0 release (2026-09-26) are in [RELEASING.md](../RELEASING.md) and
+[docs/src/project/status.md](../docs/src/project/status.md); its live receipts are in
+[receipts/2026-09-26-live-smoke](../receipts/2026-09-26-live-smoke/SUMMARY.md).
 
 **Latest executed record:** [function tools and scientific integrations](function-tools/README.md)
 records 874 normal test assertions, 48 scientific integration assertions and all

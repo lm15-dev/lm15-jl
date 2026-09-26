@@ -49,6 +49,7 @@ include("auth_storage.jl")
 include("auth_environment.jl")
 include("live_limits.jl")
 include("judgments.jl")
+include("faults.jl")
 
 @testset "aliases and errors" begin
     @test explain_auth("openai_chat"; env=Dict{String,String}()).provider == "openai-chat"
@@ -204,4 +205,9 @@ end
             end
         end
     end
+end
+
+using Aqua
+@testset "package quality (Aqua)" begin
+    Aqua.test_all(LM15; ambiguities=(recursive=false,))
 end

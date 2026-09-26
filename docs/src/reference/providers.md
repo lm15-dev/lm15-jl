@@ -62,3 +62,11 @@ preset
 ```@docs
 describe
 ```
+
+## TypeSafe, the connection budget, managed routers
+
+```@docs
+TypeSafeLM
+Timeouts
+with_auth
+```

@@ -82,5 +82,4 @@ or a replacement for tool approval.
 
 Check the generated site on a narrow screen and with keyboard navigation. Try code
 copying, source/download links, Julia help and search. Confirm actual hosting-prefix
-links, version labels and a readable status banner. None of those behaviors was
-tested during this writing pass. See [publishing](publishing.md).
+links, version labels and a readable status banner. Those behaviors have not been checked yet. See [publishing](publishing.md).

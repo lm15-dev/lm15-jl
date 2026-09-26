@@ -9,7 +9,7 @@ separate [live stream script](../../../examples/tutorials/live-stream.jl) shows 
 potentially paid version and requires explicit authorization before running.
 
 [Read the complete annotated Julia lesson](../../../examples/tutorials/streaming.jl).
-The documentation build renders it with outputs; no example or build was executed
-in this writing pass.
+The documentation build renders it; the script and its live counterpart
+(`examples/tutorials/live-stream.jl`, run against OpenAI on 2026-09-26) were run.
 
 Next: [tool calls](tools.md) and [resource ownership](../guides/lifecycle.md).

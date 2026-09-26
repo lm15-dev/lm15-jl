@@ -47,3 +47,43 @@ jobs:
       - name: Run local scientific workflows (no provider calls)
         working-directory: examples/scientific
         run: julia --startup-file=no --project=. runtests.jl
+
+  contract:
+    # The shared harness at CONTRACT_PIN (lm15-contract playbooks/port.md rule 1).
+    # It sandboxes the shim with Linux's `unshare -rn`.
+    name: Contract harness (every direction, at the pin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check out the pinned contract
+        run: |
+          PIN=$(tr -d '[:space:]' < CONTRACT_PIN)
+          [[ "$PIN" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid CONTRACT_PIN'; exit 1; }
+          git clone --no-checkout https://github.com/lm15-dev/lm15-contract.git ../lm15-contract
+          git -C ../lm15-contract checkout --detach "$PIN"
+      - name: Instantiate and precompile
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Harness
+        run: python3 ../lm15-contract/harness/check.py --shim julia --direction all
+
+  downgrade:
+    # The lowest versions [compat] allows, so the lower bounds are tested, not guessed.
+    name: Lowest compatible dependencies / Julia 1.10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+      - uses: julia-actions/julia-downgrade-compat@v1
+        with:
+          skip: Base64,Dates,Logging,Random,SHA,Test
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+

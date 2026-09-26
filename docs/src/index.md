@@ -6,10 +6,10 @@ LM15 sends requests directly to model providers and returns the same Julia reque
 response and stream types across supported protocols. There is no LM15 relay.
 You decide which data to send, which functions may run, and when to stop.
 
-!!! warning "Documentation draft"
-    This manual, its new source help and example files were written without running
-    tests or a documentation build. They are not a new verification result.
-    See [Status and evidence](project/status.md) for the earlier, version-specific checks.
+!!! note "What was checked"
+    For LM15 1.0.0 (2026-09-26, Julia 1.12.7): this manual builds in a network-free
+    sandbox with its doctests; every tutorial and scientific example was run; the live
+    examples were run once against OpenAI. See [Status and evidence](project/status.md).
 
 ## Start with a useful task
 

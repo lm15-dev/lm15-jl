@@ -497,7 +497,15 @@ function send_request(l, r::WireRequest)
         return response
     end
 end
+"""Strip exactly this client's own `provider:` prefix, once, at a codec boundary; every
+other colon-bearing model id is opaque (`ollama:qwen3.5:0.8b` keeps `qwen3.5:0.8b`)."""
+function wire_request(l::ProviderLM, r::Request)
+    bits=split(r.model, ':'; limit=2)
+    length(bits)==2 && !isempty(bits[2]) && canonical_provider(bits[1])==l.provider || return r
+    return reconstruct(r; model=String(bits[2]))
+end
 function complete(l::ProviderLM, request::Request)
+    request=wire_request(l, request)
     require_surface(l, :complete)
     validate(request)
     judgments_via_token_scoring(l, request) && return judgment_complete(l, request)

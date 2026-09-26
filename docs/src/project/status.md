@@ -1,39 +1,29 @@
 # Status, support and evidence
 
-## This documentation revision
+## LM15 1.0.0 (2026-09-26)
 
-The manual, new docstrings, build scripts and refactored tutorial sources were
-**written without running tests, examples, formatting checks or a site build**.
-No live provider requests were made. Do not treat authored expected outputs or a
-configured CI workflow as a new verification record.
-
-The default documentation preview workflow is manual-only. Publication requires
-separate execution, review and authorization. See [documentation work](documentation.md).
-
-## Earlier implementation evidence
-
-The previous source snapshot at
-[`d6758fd`](https://github.com/lm15-dev/lm15-jl/tree/d6758fdffb0256b95735f5ec8f727cb35fac56da)
-recorded:
-
-| Check | Earlier result |
+| Check | Result |
 |---|---|
-| Ordinary package tests | 874 assertions across 34 test sets |
-| Real scientific integrations | 48 assertions across 4 test sets |
-| Shared contract, all 16 directions | 1,380 pass, zero failures, two existing skips |
-| Execution environment | Julia 1.12.5, Linux x86-64 |
-| Provider access | Network-isolated fixtures; no real provider calls |
+| Shared contract, every direction, at `CONTRACT_PIN` | 1,788 of 1,788 (the same count as Python, TypeScript, Rust and Go) |
+| Managed sign-in runs (`managed` direction) | 43 of 43 |
+| One sign-in store shared with Python, TypeScript, Rust and Go, including two processes renewing one login | 40 of 40 mixed-language runs |
+| Package tests, including contract consumer vectors and Aqua | pass on Julia 1.12.7 and 1.10.12 (Linux); pass with every dependency at its lowest allowed version on 1.10 |
+| Manual | builds in a network-free sandbox; doctests and scientific examples run |
+| Live smoke with real keys (`receipts/2026-09-26-live-smoke`) | 63 ok of 69 checks on 14 providers and 4 saved sign-ins; the xAI and Claude sign-ins renewed live |
 
-The skips were existing `openai.computer_use` corpus gaps: a missing canonical
-request and missing response golden. They were not new exclusions.
-[The recorded logs and source digest](https://github.com/lm15-dev/lm15-jl/tree/d6758fdffb0256b95735f5ec8f727cb35fac56da/verification/function-tools)
-remain historical evidence, not a receipt for this new documentation revision.
+The six live checks that were not "ok": Z.AI's `json_schema` adapted as receipted,
+DeepSeek refusing `json_schema` as receipted, Grok declining to repeat an exact phrase,
+and an OpenRouter minted key that had reached its \$1 limit (three checks). None is a
+defect in LM15.jl.
+
+Not checked by the maintainers: macOS and Windows (the CI matrix runs them), a
+screen-reader or mobile pass over the manual, and every provider's files, batches,
+video and realtime endpoints live (the contract grades their wire forms).
 
 ## Platforms
 
 The package targets Julia 1.10 or later on native Linux, macOS and Windows.
-Recorded local checks used Julia 1.12.5 on Linux. Other platforms and Julia 1.10
-require their own execution; a CI matrix alone does not establish success.
+Local checks used Julia 1.12.7 and 1.10.12 on Linux.
 
 There is no supported browser-WASM build. A browser using a Julia server is a
 different architecture, not Julia running directly in the browser. Notebook advice

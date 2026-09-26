@@ -1,7 +1,7 @@
 # Publish a reviewed manual
 
-There is no deployment in this writing pass. The source and build workflow are
-prepared, but the site must be built and reviewed before a public release.
+The site builds and its artifact is uploaded by CI on every push. It has not been
+published: that remains an explicit, reviewed step.
 
 ## Keep one source of truth
 
@@ -11,9 +11,8 @@ Julia site or host a versioned copy of its static artifact under an agreed path.
 Do not manually copy the same Julia manual into Astro/Starlight or teach two renderers
 to maintain separate interpretations of Julia docstrings.
 
-The first delivery should be a preview artifact. The manual-only GitHub workflow
-can produce one when explicitly started; it does not publish or run on push/PR in
-this unverified phase. A separate navigation/search experience is acceptable until
+The first delivery should be a preview artifact. The documentation workflow
+produces one on every push and pull request; it never publishes. A separate navigation/search experience is acceptable until
 the shared-site handoff has been reviewed. Avoid a custom rendering bridge merely
 to make the first preview look identical to the hub.
 

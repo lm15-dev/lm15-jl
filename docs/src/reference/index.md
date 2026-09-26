@@ -1,8 +1,7 @@
 # Function and type reference
 
 Use this section to look up a particular operation. For a complete task, start with
-the tutorials. This source help was written without executing a build or tests in
-the documentation pass; it is not a new compatibility or verification claim.
+the tutorials. Every exported name has help, and the manual build fails if one is missing from these pages.
 
 - [Requests and content](content.md): messages, settings, response access and JSON.
 - [Function tools](tools.md): specifications, bindings, input/output conversion.
@@ -21,4 +20,10 @@ read effect and ownership notes before retrying.
 ## All documented names
 
 ```@index
+```
+
+## The module
+
+```@docs
+LM15
 ```

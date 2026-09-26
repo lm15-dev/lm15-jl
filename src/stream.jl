@@ -213,6 +213,7 @@ function coalesce_stream(source; model=nothing, adaptations=())
     end
 end
 function stream(l::ProviderLM, r::Request)
+    r=wire_request(l, r)
     require_surface(l, :stream)
     # Built before the first event, so a refusal (or adaptations="refuse") raises here.
     wire, records=build_request_adapted(l, r; stream=true)

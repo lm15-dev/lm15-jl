@@ -1,17 +1,22 @@
 # Releases and migration notes
 
-## Unreleased documentation work
+## 1.0.0 (2026-09-26)
 
-The current work adds the task-oriented manual, source help, reader-facing tutorial
-sources, a documentation project and manual preview/publication entry points.
-It also extracts the scientific operation definitions so the reader examples and
-existing assertions use the same sources.
+The first release of lm15 for Julia, at parity with Python, TypeScript, Rust and Go
+(see [the changelog](https://github.com/lm15-dev/lm15-jl/blob/main/CHANGELOG.md)).
+Coming from the 0.3 development versions:
 
-**This work has not been tested or built in the writing pass.** No release,
-registration, deployment or new platform support is implied. Earlier verification
-records are retained unchanged for their original source snapshots.
+- When a stored xAI subscription login is unusable (expired, no refresh token) or was
+  signed out, a router no longer falls back to the ambient `XAI_API_KEY`; it raises
+  `MissingCredentialError`. Pass the key in `api_keys` to use it deliberately (R3).
+- A token-shaped string (a JWT, a Google `ya29.` token) on a door that accepts both
+  keys and bearer tokens now travels as a bearer token instead of being refused.
+- `HTTPTransport()` defaults to the ratified budget: connect 10 s (was 30 s), read
+  600 s (was 120 s), 100 connections.
+- `choice` and `score` take options in order, as vectors of `key => description` pairs.
+- Refusals carry the field they are about in `error.feature`.
 
-## Existing Julia interface to preserve
+## Upgrading an application
 
 The previously recorded implementation includes canonical request/response data,
 provider adapters, routing, authentication, streams/live sessions and resources/jobs.

@@ -2,8 +2,7 @@
 
 Keep changes scoped to the Julia repository unless the task explicitly calls for
 contract or shared-website changes. Read the pinned contract's authority rules before
-changing mappings. The commands below are instructions for a future authorized run;
-none was executed during the documentation-writing pass.
+changing mappings. The commands below are the ones the 1.0.0 release was checked with.
 
 ## Environments
 

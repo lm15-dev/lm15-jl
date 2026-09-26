@@ -73,3 +73,32 @@ to_json
 from_json
 parse_json
 ```
+
+## Judgments and data parts
+
+A judgment is a question whose answer is one of the keys you declare; the answer is a
+[`DataPart`](@ref), with a measured distribution where the provider can measure one
+(MAP-14). See [judgments](../guides/judgments.md).
+
+```@docs
+DataPart
+data
+data_part
+probabilities
+Judgment
+judgments
+choice
+yes_no
+score
+judgments_in_schema
+request_judgments
+expected_level
+```
+
+## Adaptations
+
+```@docs
+Adaptation
+plan
+apply_client_side_stop
+```

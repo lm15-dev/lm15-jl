@@ -1066,6 +1066,7 @@ end
 build_request(l::ProviderLM, r::Request; stream=false) = first(build_request_adapted(l, r; stream))
 # The wire request and the MAP-13 record of what its build adapted.
 function build_request_adapted(l::ProviderLM, r::Request; stream=false)
+    r=wire_request(l, r)
     stream && l.dialect=="typesafe" &&
         refuse(l.provider, "stream", "systemone answers in one piece; there is no stream to wrap")
     require_surface(l, stream ? :stream : :complete)
@@ -1102,6 +1103,7 @@ What a call with this request would adapt (MAP-13), with no network and no crede
 read. Raises what the call would raise; returns the full record under every policy.
 """
 function plan(l::ProviderLM, r::Request; stream=false)
+    r=wire_request(l, r)
     require_surface(l, stream ? :stream : :complete)
     !stream && judgments_via_token_scoring(l, r) && return judgment_adaptations(l, r)
     return last(collecting(()->build_payload(l, r; stream), l.adaptations, l.provider))

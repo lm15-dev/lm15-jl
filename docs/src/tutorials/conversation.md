@@ -9,7 +9,7 @@ It makes no network request and does not prove how an online model will answer.
 The first Request stays unchanged; the follow-up carries its own full history.
 
 [Read the complete annotated Julia lesson](../../../examples/tutorials/conversation.jl).
-The build renders this source into the tutorial page. This writing pass did not
-execute it or build the site.
+The build renders this source into the tutorial page; the script itself was run on
+2026-09-26.
 
 Next: [streaming](streaming.md) and [how LM15 works](../guides/model.md).
