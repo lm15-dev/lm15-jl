@@ -4,21 +4,9 @@ struct RouteRule
     note::String
 end
 RouteRule(prefix, provider; note="") = RouteRule(prefix, canonical_provider(provider), note)
+const ROUTING_DATA=JSON.parse(read(joinpath(@__DIR__, "data", "routing.json"), String))
 const DEFAULT_RULES=Tuple(
-    RouteRule(prefix, provider) for (prefix, provider) in (
-        ("claude-", "anthropic"),
-        ("gpt-", "openai"),
-        ("o1", "openai"),
-        ("o3", "openai"),
-        ("o4", "openai"),
-        ("gemini-", "gemini"),
-        ("gemma-", "gemini"),
-        ("nano-banana", "gemini"),
-        ("grok-", "xai"),
-        ("sora-", "openai"),
-        ("veo-", "gemini"),
-        ("chat-latest", "openai"),
-    )
+    RouteRule(r["prefix"], r["provider"]; note=get(r, "note", "")) for r in ROUTING_DATA["DEFAULT_RULES"]
 )
 mutable struct ModelRegistry
     models::OrderedDict{Tuple{String,String},ModelInfo}
@@ -58,6 +46,7 @@ Base.@kwdef struct RouterConfig
     api_keys::AbstractDict = Dict{String,Any}()
     base_urls::AbstractDict = Dict{String,String}()
     settings::AbstractDict = Dict{String,Any}()
+    credentials::AbstractDict = Dict{String,String}()
     transport::Any = nothing
     adaptations::String = "note"
 end
@@ -82,8 +71,10 @@ mutable struct LMRouter
     lock::ReentrantLock
 end
 function LMRouter(config::RouterConfig=RouterConfig())
-    for (label, mapping) in
-        ((:api_keys, config.api_keys), (:base_urls, config.base_urls), (:settings, config.settings))
+    for (label, mapping) in (
+        (:api_keys, config.api_keys), (:base_urls, config.base_urls), (:settings, config.settings),
+        (:credentials, config.credentials),
+    )
         seen=Set{String}()
         for key in keys(mapping)
             key isa AbstractString ||
@@ -95,6 +86,15 @@ function LMRouter(config::RouterConfig=RouterConfig())
                 throw(NotConfiguredError("$label has duplicate spellings for $canonical"))
             push!(seen, canonical)
         end
+    end
+    # AUTH-1 named credentials: one identity per cloud door, a known name, and
+    # never together with an api_keys entry for the same provider.
+    for (key, name) in config.credentials
+        provider=canonical_provider(key)
+        check_named(provider_definition(provider).access, name)
+        any(k->canonical_provider(k)==provider, keys(config.api_keys)) && throw(NotConfiguredError(
+            "$provider: both an api_keys entry and the named credential $(repr(name)); a door has one identity — give one";
+            provider))
     end
     return LMRouter(config, Dict{String,ProviderLM}(), ReentrantLock())
 end
@@ -170,24 +170,23 @@ function lm(router::LMRouter, model::AbstractString)
             explicit_source(provider, config.api_keys)
         end
         key=source===nothing ? nothing : config.api_keys[source]
+        env=config.env===nothing ? ENV : config.env
         base=provider_setting(config.base_urls, provider)
-        definition.access.host!==nothing &&
-            base!==nothing &&
-            throw(
-                NotConfiguredError(
-                    "cloud URLs are derived from host settings; configure region/resource instead";
-                    provider,
-                ),
-            )
+        # A cloud door takes a URL root: the explicit entry, then the vendor's
+        # own endpoint variable, then the template (AUTH-10, 2026-09-19).
+        base===nothing && definition.access.host!==nothing &&
+            (base=first(endpoint_from_env(definition.access.host, env)))
         settings=provider_setting(config.settings, provider, Dict{String,String}())
+        named=provider_setting(config.credentials, provider)
         client=ProviderLM(
             provider;
             api_key=key,
             base_url=base,
             settings,
-            env=config.env===nothing ? ENV : config.env,
+            env,
             transport=config.transport,
             adaptations=config.adaptations,
+            credential=named,
         )
         return router.clients[provider]=client
     end

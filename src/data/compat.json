@@ -4,17 +4,21 @@
       "instruction_role": "system",
       "max_tokens_field": "max_completion_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
-      "cache_control": "openai",
-      "tool_result_media": "reject"
+      "tool_result_media": "reject",
+      "cache_control": "openai"
     },
     "ollama": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
+      "tool_result_name": "omit",
       "thinking_format": "reasoning_effort",
+      "strict_tools": "omit",
+      "tool_result_media": "reject",
+      "cache_control": "none",
       "reasoning_efforts": [
         "minimal",
         "low",
@@ -22,93 +26,89 @@
         "high",
         "xhigh",
         "max"
-      ],
-      "tool_result_name": "omit",
-      "strict_tools": "omit",
-      "cache_control": "none",
-      "tool_result_media": "reject"
+      ]
     },
     "lmstudio": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "none",
       "tool_result_name": "omit",
+      "thinking_format": "none",
       "strict_tools": "omit",
-      "cache_control": "none",
-      "tool_result_media": "reject"
+      "tool_result_media": "reject",
+      "cache_control": "none"
     },
     "groq": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
       "builtin_tools": "groq",
-      "cache_control": "none",
-      "tool_result_media": "reject"
+      "tool_result_media": "reject",
+      "cache_control": "none"
     },
     "openrouter": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "openrouter",
       "tool_result_name": "omit",
+      "thinking_format": "openrouter",
       "strict_tools": "omit",
-      "cache_control": "openai",
-      "tool_result_media": "reject"
+      "tool_result_media": "reject",
+      "cache_control": "openai"
     },
     "xai": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "deepseek",
       "tool_result_name": "omit",
+      "thinking_format": "deepseek",
       "strict_tools": "omit",
-      "cache_control": "none",
-      "tool_result_media": "images"
+      "tool_result_media": "images",
+      "cache_control": "none"
     },
     "vllm": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
-      "cache_control": "none",
       "tool_result_media": "reject",
+      "cache_control": "none",
       "token_scoring": "logprob_token_ids"
     },
     "sglang": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
-      "cache_control": "none",
-      "tool_result_media": "reject"
+      "tool_result_media": "reject",
+      "cache_control": "none"
     },
     "deepseek": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
+      "tool_result_name": "omit",
       "thinking_format": "deepseek",
       "thinking_replay": "native",
       "assistant_reasoning_content": "include_empty",
-      "tool_result_name": "omit",
       "strict_tools": "omit",
+      "tool_result_media": "reject",
       "cache_control": "none",
-      "user_field": "user_id",
-      "tool_result_media": "reject"
+      "user_field": "user_id"
     },
     "qwen": {
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
-      "thinking_format": "qwen",
       "tool_result_name": "omit",
+      "thinking_format": "qwen",
       "strict_tools": "omit",
       "cache_control": "none"
     },
@@ -116,9 +116,10 @@
       "instruction_role": "system",
       "max_tokens_field": "max_completion_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
+      "tool_result_media": "reject",
       "cache_control": "none",
       "user_field": "user",
       "forced_tool_choice": "send",
@@ -137,15 +138,14 @@
             "forced_tool_choice": "reject"
           }
         ]
-      ],
-      "tool_result_media": "reject"
+      ]
     },
     "bedrock_mantle": {
       "instruction_role": "system",
       "max_tokens_field": "max_completion_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
       "cache_control": "none",
       "user_field": "user",
@@ -165,43 +165,200 @@
       "instruction_role": "system",
       "max_tokens_field": "max_tokens",
       "stream_usage": "include",
+      "tool_result_name": "omit",
       "thinking_format": "deepseek",
       "thinking_replay": "native",
-      "tool_result_name": "omit",
       "strict_tools": "omit",
+      "tool_result_media": "images",
       "cache_control": "none",
       "user_field": "user_id",
       "forced_tool_choice": "reject",
-      "json_schema": "reject",
-      "tool_result_media": "images"
+      "json_schema": "reject"
     },
     "meta": {
       "instruction_role": "developer",
       "max_tokens_field": "max_completion_tokens",
       "stream_usage": "include",
-      "thinking_format": "reasoning_effort",
       "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
       "strict_tools": "omit",
+      "tool_result_media": "reject",
       "cache_control": "openai_implicit",
-      "user_field": "safety_identifier",
-      "tool_result_media": "reject"
+      "user_field": "safety_identifier"
     },
     "moonshotai": {
       "instruction_role": "system",
       "max_tokens_field": "max_completion_tokens",
       "stream_usage": "include",
+      "tool_result_name": "omit",
       "thinking_format": "kimi",
       "thinking_replay": "native",
-      "tool_result_name": "omit",
       "strict_tools": "omit",
+      "tool_result_media": "images",
       "cache_control": "openai_implicit",
       "user_field": "safety_identifier",
       "reasoning_efforts": [
         "low",
         "high",
         "max"
-      ],
-      "tool_result_media": "images"
+      ]
+    },
+    "deepinfra": {
+      "instruction_role": "system",
+      "max_tokens_field": "max_completion_tokens",
+      "stream_usage": "include",
+      "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
+      "thinking_replay": "native",
+      "strict_tools": "omit",
+      "tool_result_media": "reject",
+      "cache_control": "none",
+      "forced_tool_choice": "reject",
+      "model_overrides": [
+        [
+          "openai/gpt-oss",
+          {
+            "reasoning_off": "lowest"
+          }
+        ],
+        [
+          "deepseek-ai/DeepSeek-V3.2",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "deepseek-ai/DeepSeek-V4-Flash",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "deepseek-ai/DeepSeek-V4.1-Flash",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "zai-org/GLM-5.3-Flash",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "moonshotai/Kimi-K2.6",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "Qwen/Qwen3.6-27B",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "Qwen/Qwen3-Next-80B-A3B-Instruct",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "nvidia/NVIDIA-Nemotron-3.5-Lightning",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "ibm-granite/granite-4.2-8b",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "XiaomiMiMo/MiMo-V2.6-Flash",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "tencent/Hy3",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "google/gemini-3.1-flash-lite",
+          {
+            "forced_tool_choice": "send"
+          }
+        ],
+        [
+          "anthropic/claude-haiku-4-5",
+          {
+            "forced_tool_choice": "send"
+          }
+        ]
+      ]
+    },
+    "together": {
+      "instruction_role": "system",
+      "max_tokens_field": "max_completion_tokens",
+      "stream_usage": "include",
+      "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
+      "thinking_replay": "native",
+      "strict_tools": "omit",
+      "tool_result_media": "reject",
+      "cache_control": "none",
+      "model_overrides": [
+        [
+          "openai/gpt-oss",
+          {
+            "forced_tool_choice": "reject",
+            "reasoning_efforts": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "reasoning_off": "lowest"
+          }
+        ],
+        [
+          "zai-org/GLM-5.3",
+          {
+            "reasoning_off": "lowest"
+          }
+        ]
+      ]
+    },
+    "fireworks": {
+      "instruction_role": "system",
+      "max_tokens_field": "max_completion_tokens",
+      "stream_usage": "include",
+      "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
+      "thinking_replay": "native",
+      "strict_tools": "omit",
+      "tool_result_media": "images",
+      "cache_control": "none"
+    },
+    "parasail": {
+      "instruction_role": "system",
+      "max_tokens_field": "max_completion_tokens",
+      "stream_usage": "include",
+      "tool_result_name": "omit",
+      "thinking_format": "reasoning_effort",
+      "thinking_replay": "native",
+      "strict_tools": "omit",
+      "tool_result_media": "images",
+      "cache_control": "none"
     }
   },
   "OPENAI_CHAT_PRESET_BASE_URLS": {
@@ -216,7 +373,11 @@
     "deepseek": "https://api.deepseek.com",
     "zai": "https://api.z.ai/api/paas/v4",
     "meta": "https://api.meta.ai/v1",
-    "moonshotai": "https://api.moonshot.ai/v1"
+    "moonshotai": "https://api.moonshot.ai/v1",
+    "deepinfra": "https://api.deepinfra.com/v1/openai",
+    "together": "https://api.together.ai/v1",
+    "fireworks": "https://api.fireworks.ai/inference/v1",
+    "parasail": "https://api.parasail.io/v1"
   },
   "OPENAI_RESPONSES_PRESETS": {
     "openai": {
@@ -339,10 +500,10 @@
       "cache_control": "none",
       "structured_output": "reject",
       "parallel_tool_calls": "reject",
+      "tool_result_media": "reject",
       "model_prefixes": [
         "deepseek-"
-      ],
-      "tool_result_media": "reject"
+      ]
     },
     "meta": {
       "thinking_format": "adaptive",
@@ -358,6 +519,7 @@
       "structured_output": "send",
       "parallel_tool_calls": "reject",
       "sampling_params": "reject",
+      "tool_result_media": "images",
       "reasoning_efforts": [
         "low",
         "high",
@@ -365,8 +527,7 @@
       ],
       "model_prefixes": [
         "kimi-"
-      ],
-      "tool_result_media": "images"
+      ]
     }
   },
   "ANTHROPIC_PRESET_BASE_URLS": {

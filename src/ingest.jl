@@ -583,20 +583,7 @@ function request_from_openai_chat(l::ProviderLM, body::AbstractDict)
         unsupported(l.provider, "Chat Completions request ingest on this dialect")
     return request_from_openai_chat(body; compat=l.compat)
 end
-const LITELLM_PROVIDER_PREFIXES=Dict(
-    "openai"=>"openai-chat",
-    "anthropic"=>"anthropic",
-    "gemini"=>"gemini",
-    "groq"=>"groq",
-    "openrouter"=>"openrouter",
-    "deepseek"=>"deepseek",
-    "xai"=>"xai",
-    "ollama"=>"ollama",
-    "ollama_chat"=>"ollama",
-    "hosted_vllm"=>"vllm",
-    "moonshot"=>"moonshotai",
-    "azure"=>"azure-chat",
-)
+const LITELLM_PROVIDER_PREFIXES=Dict{String,String}(ROUTING_DATA["LITELLM_PROVIDER_PREFIXES"])
 function openai_chat_model_string(model::AbstractString)
     occursin(':', model) && return String(model)
     bits=split(model, '/'; limit=2)

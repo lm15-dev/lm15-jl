@@ -14,7 +14,9 @@ Base.@kwdef struct OpenAIChatCompat <: Compat
     cache_control::Maybe{String} = nothing
     user_field::Maybe{String} = nothing
     forced_tool_choice::Maybe{String} = nothing
+    reasoning_off::Maybe{String} = nothing
     json_schema::Maybe{String} = nothing
+    token_scoring::Maybe{String} = nothing
     reasoning_efforts::Maybe{Tuple} = nothing
     routing::Maybe{JsonObject} = nothing
     extensions::Maybe{JsonObject} = nothing
@@ -66,14 +68,9 @@ function preset_key(name)
     key = replace(lowercase(name), '-'=>'_', ' '=>'_', '.'=>'_')
     return get(PRESET_ALIASES, key, key)
 end
-# Settings of features this port does not implement yet (token_scoring: MAP-14
-# candidate scoring on vLLM). The shared preset tables carry them; skipped here,
-# while any other unknown key is still an error (a typo in a caller's policy).
-const UNPORTED_COMPAT_SETTINGS = ("token_scoring",)
 function compat_from_dict(::Type{T}, d) where {T<:Compat}
     kw = Dict{Symbol,Any}()
     for (key, v) in d
-        key in UNPORTED_COMPAT_SETTINGS && continue
         name=Symbol(key)
         name in fieldnames(T) || throw(ArgumentError("unknown compatibility setting $key"))
         kw[name] = v isa AbstractVector ? Tuple(v) : v
@@ -106,7 +103,9 @@ const CHAT_DEFAULTS = (
     cache_control="openai",
     user_field="user",
     forced_tool_choice="send",
+    reasoning_off="send",
     json_schema="send",
+    token_scoring="none",
 )
 const RESPONSES_DEFAULTS = (
     developer_role="developer",
@@ -143,6 +142,8 @@ const COMPAT_VALUES=Dict(
     :cache_control=>("none", "openai", "openai_implicit", "anthropic"),
     :user_field=>("user", "user_id", "safety_identifier"),
     :forced_tool_choice=>("send", "reject"),
+    :reasoning_off=>("send", "lowest"),
+    :token_scoring=>("none", "logprob_token_ids"),
     :json_schema=>("send", "reject"),
     :structured_output=>("send", "reject"),
     :parallel_tool_calls=>("send", "reject"),
@@ -220,6 +221,7 @@ function validate(c::Compat)
                     "json_schema",
                     "reasoning_efforts",
                     "tool_result_media",
+                    "reasoning_off",
                 )
                 all(k -> k in allowed_knobs, keys(knobs)) ||
                     throw(ArgumentError("unknown per-model compatibility setting"))

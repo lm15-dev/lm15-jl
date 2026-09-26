@@ -66,7 +66,8 @@ function vet_adapter(msg; parse_only=false)
         settings=get(msg, "settings", Dict{String,String}()),
         clock,
         account_id=canonical_provider(provider)=="openai-codex" ? "test-account" : nothing,
-        env=Dict{String,String}(),
+        # The harness's own (empty) environment: nothing ambient is read.
+        env=Dict{String,String}("NO_GCE_CHECK"=>"1", "HOME"=>"/nonexistent-lm15-vet-home"),
     )
 end
 function vet_http(msg; bodykey="body_b64", status=Int(get(msg, "status", 200)))
@@ -138,11 +139,18 @@ function vet_operation(msg)
             settings=get(msg, "settings", Dict()),
             files=get(msg, "files", nothing),
         )
-        return obj(
+        reply=obj(
             "configured"=>report.configured,
             "steps"=>[obj("kind"=>s.kind, "state"=>string(s.state)) for s in report.steps],
             "report_text"=>describe(report),
         )
+        if !isempty(report.settings_from)
+            reply["settings"]=obj((
+                k=>(v.state===nothing ? obj("value"=>v.value, "from"=>v.from) :
+                    obj("value"=>v.value, "from"=>v.from, "state"=>v.state))
+                for (k, v) in report.settings_from)...)
+        end
+        return reply
     elseif op=="surface_dump"
         types=obj(
             (

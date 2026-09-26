@@ -80,12 +80,17 @@ function parts_to_text(parts; provider="", where="a text field")
             push!(out, join(filter(v->!empty_optional(v), (p.title, p.url, p.text)), " — "))
         elseif p isa RefusalPart
             push!(out, p.text)
+        elseif p isa DataPart
+            push!(out, data_part_text(p))
         else
             unsupported(provider, "$(kind(p)) in $where")
         end
     end
     return join(out, "\n")
 end
+"""A data part on a wire that takes only text: its value as compact canonical JSON,
+nothing added (changes/2026-09-19-jev-state.md D3)."""
+data_part_text(p::DataPart) = JSON.serialize(p.value)
 function system_text(s; provider="")
     return if s isa AbstractString
         String(s)

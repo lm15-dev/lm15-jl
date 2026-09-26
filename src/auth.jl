@@ -138,6 +138,38 @@ function read_xai_with_source(path=nothing; env=ENV)
     return throw(NotConfiguredError("xai", "No stored subscription credential.", XAI_HINT))
 end
 read_xai_credential(path=nothing; kw...) = first(read_xai_with_source(path; kw...))
+"""
+    xai_stored_state(path=nothing; env=ENV)
+
+The stored xAI subscription's state, offline (AUTH-1, ratified R2/R3 2026-09-22):
+`:usable` (fresh, or expired with a refresh token), `:unusable` (stored, expired, no
+refresh token: BLOCKS the environment key), `:logged_out` (signed out under managed
+Auth: the non-secret marker blocks the key after a restart too), `:absent`.
+"""
+function xai_stored_state(path=nothing; env=ENV)
+    paths=if path === nothing
+        (default_credentials_path(env), joinpath(get(env, "HOME", homedir()), ".pi", "agent", "auth.json"))
+    else
+        (path,)
+    end
+    for file in paths
+        d=try
+            read_json_object(file, "xai", XAI_HINT)
+        catch e
+            e isa NotConfiguredError || rethrow()
+            continue
+        end
+        raw=dict_field(d, "xai")
+        if raw!==nothing && string_field(raw, "access")!==nothing
+            c=LocalOAuthCredential(raw["access"], string_field(raw, "refresh"), int_field(raw, "expires"), nothing)
+            return !is_expired(c) || has_refresh_token(c) ? :usable : :unusable
+        end
+        slots=dict_field(something(dict_field(d, "_lm15"), obj()), "slots")
+        slot=slots===nothing ? nothing : dict_field(slots, "xai")
+        slot!==nothing && get(slot, "logged_out", false)===true && return :logged_out
+    end
+    return :absent
+end
 function stored_credential(provider, path=nothing; env=ENV)
     home=get(env, "HOME", homedir())
     provider == "claude-code" && return read_claude_code_credential(
@@ -168,8 +200,16 @@ struct AuthReport
     steps::Vector{AuthStep}
     configured::Bool
     settings::Dict{String,String}
+    settings_from::OrderedDict{String,Any}
+    base_url::Maybe{String}
+    base_url_from::Maybe{String}
+    named::Maybe{String}
+    problems::Vector{String}
 end
-AuthReport(p, s, c) = AuthReport(p, s, c, Dict{String,String}())
+function AuthReport(p, s, c, settings=Dict{String,String}(); settings_from=OrderedDict{String,Any}(),
+    base_url=nothing, base_url_from=nothing, named=nothing, problems=String[])
+    return AuthReport(p, s, c, Dict{String,String}(settings), settings_from, base_url, base_url_from, named, problems)
+end
 function selected_step(r::AuthReport)
     i=findfirst(s->s.state===:selected, r.steps)
     return i === nothing ? nothing : r.steps[i]
@@ -180,8 +220,24 @@ function describe(r::AuthReport)
         "auth for provider $(repr(r.provider)):";
         ["  $(marks[s.state]) $(s.kind): $(s.detail)" for s in r.steps]
     ]
+    r.named===nothing || insert!(lines, 2,
+        "  named credential \"$(r.named)\": only its rungs are tried; the chain is not walked")
     push!(lines, "  configured: "*(r.configured ? "yes" : "no"))
-    append!(lines, ["  setting $k: $(r.settings[k])" for k in sort!(collect(keys(r.settings)))])
+    if isempty(r.settings_from)
+        append!(lines, ["  setting $k: $(r.settings[k])" for k in sort!(collect(keys(r.settings)))])
+    else
+        for (k, v) in r.settings_from
+            push!(lines, if v.state=="unprobed"
+                "  setting $k: unprobed (the $(v.from) server is asked at request time)"
+            elseif v.value===nothing
+                "  setting $k: missing"
+            else
+                "  setting $k: $(v.value) (from $(v.from))"
+            end)
+        end
+    end
+    r.base_url===nothing || push!(lines, "  base URL: $(r.base_url) (from $(r.base_url_from))")
+    append!(lines, ["  problem: $m" for m in r.problems])
     return join(lines, "\n")
 end
 Base.show(io::IO, r::AuthReport) = print(io, describe(r))
@@ -223,11 +279,14 @@ function explain_auth(
     settings=Dict{String,String}(),
     files=nothing,
     home=nothing,
+    credential=nothing,
+    base_url=nothing,
 )
     environment=env === nothing ? ENV : env
     p=provider_definition(provider)
     policy=p.access
     steps=AuthStep[]
+    check_named(policy, credential)
     if endswith(policy.credential_policy, "-chain")
         explicit=if isempty(api_key_providers)
             api_keys
@@ -241,6 +300,8 @@ function explain_auth(
             settings,
             files,
             home=home===nothing ? get(environment, "HOME", homedir()) : home,
+            credential,
+            base_url,
         )
     end
     path=if p.id=="claude-code"
@@ -281,22 +342,32 @@ function explain_auth(
             selected ? :selected : :absent,
         ),
     )
+    blocked=false
     if policy.credential_policy=="oauth-unless-explicit"
+        # A usable stored login outranks env keys (it spends no money per token);
+        # an unusable or signed-out one BLOCKS them (R3, 2026-09-22).
         s=oauth_step(selected)
+        state=xai_stored_state(path; env=environment)
+        if state===:logged_out && !selected
+            s=AuthStep("oauth-file", "signed out (marker present)", :absent)
+            blocked=true
+        elseif state===:unusable && !selected
+            blocked=true
+        end
         push!(steps, s)
         selected |= s.state===:selected
     end
     for key in policy.env_keys
         present=!isempty(get(environment, key, ""))
-        push!(
-            steps,
-            AuthStep(
-                "env:$key",
-                present ? "set (value never shown)" : "not set",
-                present ? (selected ? :shadowed : :selected) : :absent,
-            ),
-        )
-        selected |= present
+        detail=if !present
+            "not set"
+        elseif blocked && !selected
+            "set, blocked by the failed/signed-out subscription (pass it explicitly to use it)"
+        else
+            "set (value never shown)"
+        end
+        push!(steps, AuthStep("env:$key", detail, present ? (selected || blocked ? :shadowed : :selected) : :absent))
+        selected |= present && !blocked
     end
     if p.placeholder_key !== nothing
         push!(

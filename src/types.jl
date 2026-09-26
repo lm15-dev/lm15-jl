@@ -110,6 +110,16 @@ const MediaPart = Union{ImagePart,AudioPart,VideoPart,DocumentPart,BinaryPart}
     continuation::Tuple = ()
     type::String = "tool_call"
 end
+# Structured data as content (changes/2026-09-17-judgments.md D2): input in a
+# user/system message; in an assistant message, the answer to a judgment request
+# (MAP-14) with an optional measured distribution and its method (INV-052).
+@canonical DataPart <: Part begin
+    value::Any = nothing
+    probabilities::Maybe{JsonObject} = nothing
+    method::Maybe{String} = nothing
+    continuation::Tuple = ()
+    type::String = "data"
+end
 @canonical ToolResultPart <: Part begin
     id::String
     content::Tuple
@@ -169,6 +179,7 @@ end
     user_id::Maybe{String} = nothing
     store::Maybe{Bool} = nothing
     logprobs::Maybe{Int} = nothing
+    probabilities::Maybe{String} = nothing
     extensions::Maybe{JsonObject} = nothing
 end
 @canonical Request begin
@@ -212,6 +223,7 @@ end
     finish_reason::String
     usage::Usage = Usage()
     logprobs::Maybe{Tuple} = nothing
+    logprobs_complete::Bool = true
     provider_data::Maybe{JsonObject} = nothing
     adaptations::Tuple = ()
 end
@@ -227,6 +239,7 @@ end
     text::String = ""
     part_index::Int = 0
     logprobs::Tuple = ()
+    logprobs_complete::Bool = true
     type::String = "text"
 end
 @canonical ThinkingDelta <: Delta begin
@@ -269,6 +282,7 @@ end
     code::String
     message::String = ""
     provider_code::Maybe{String} = nothing
+    http_response::Maybe{JsonObject} = nothing
 end
 @canonical StreamStartEvent <: StreamEvent begin
     id::Maybe{String} = nothing
@@ -329,6 +343,7 @@ end
 @canonical CachedPrefix begin
     prefix::Request
     resource::Maybe{CacheInfo} = nothing
+    provider::Maybe{String} = nothing
 end
 @canonical BatchRequest begin
     requests::Tuple
@@ -522,6 +537,14 @@ text(content::AbstractString; kw...) = TextPart(content; kw...)
 thinking(content::AbstractString; kw...) = ThinkingPart(content; kw...)
 refusal(content::AbstractString; kw...) = RefusalPart(content; kw...)
 citation(; kw...) = CitationPart(; kw...)
+"""
+    data(value; probabilities=nothing, method=nothing, continuation=())
+
+A `DataPart`: structured JSON content. As input it is a JSON value the provider reads
+as such (or its compact JSON text on a text-only wire); `probabilities` and `method`
+belong to an assistant's answer only (INV-052).
+"""
+data(value; kw...) = DataPart(; value, kw...)
 function normalize_content(content)
     content isa AbstractString && return (TextPart(content),)
     content isa Part && return (content,)

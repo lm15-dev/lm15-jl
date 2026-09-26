@@ -1,0 +1,87 @@
+{
+  "DEFAULT_RULES": [
+    {
+      "prefix": "claude-",
+      "provider": "anthropic",
+      "note": "Anthropic Claude family"
+    },
+    {
+      "prefix": "gpt-",
+      "provider": "openai",
+      "note": "OpenAI GPT family (Responses API; use openai-chat: for Chat Completions)"
+    },
+    {
+      "prefix": "o1",
+      "provider": "openai",
+      "note": "OpenAI o1 reasoning family"
+    },
+    {
+      "prefix": "o3",
+      "provider": "openai",
+      "note": "OpenAI o3 reasoning family"
+    },
+    {
+      "prefix": "o4",
+      "provider": "openai",
+      "note": "OpenAI o4 reasoning family"
+    },
+    {
+      "prefix": "gemini-",
+      "provider": "gemini",
+      "note": "Google Gemini family"
+    },
+    {
+      "prefix": "gemma-",
+      "provider": "gemini",
+      "note": "Google Gemma open models, served by the Gemini API (live /models listing 2026-09-01)"
+    },
+    {
+      "prefix": "nano-banana",
+      "provider": "gemini",
+      "note": "Google image models on the Gemini API (live /models listing 2026-09-01)"
+    },
+    {
+      "prefix": "grok-",
+      "provider": "xai",
+      "note": "xAI Grok family (XAI_API_KEY or subscription OAuth)"
+    },
+    {
+      "prefix": "sora-",
+      "provider": "openai",
+      "note": "OpenAI Sora video generation"
+    },
+    {
+      "prefix": "veo-",
+      "provider": "gemini",
+      "note": "Google Veo video generation"
+    },
+    {
+      "prefix": "chat-latest",
+      "provider": "openai",
+      "note": "OpenAI rolling chat alias (live /models listing 2026-09-01)"
+    },
+    {
+      "prefix": "jev-",
+      "provider": "typesafe",
+      "note": "TypeSafe Jev (live /v1/models listing 2026-09-17: jev-latest, jev-preview; versioned ids jev-1.13.0 accepted)"
+    }
+  ],
+  "LITELLM_PROVIDER_PREFIXES": {
+    "openai": "openai-chat",
+    "anthropic": "anthropic",
+    "gemini": "gemini",
+    "groq": "groq",
+    "openrouter": "openrouter",
+    "deepseek": "deepseek",
+    "xai": "xai",
+    "ollama": "ollama",
+    "ollama_chat": "ollama",
+    "hosted_vllm": "vllm",
+    "moonshot": "moonshotai",
+    "azure": "azure-chat",
+    "deepinfra": "deepinfra",
+    "together_ai": "together",
+    "fireworks_ai": "fireworks",
+    "parasail": "parasail"
+  }
+}

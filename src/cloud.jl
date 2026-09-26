@@ -831,17 +831,131 @@ struct CredentialRung
     mechanism::String
     availability::Symbol
     acquire::Function
+    label::String
+    detail::String
 end
 struct ResolvedCredential <: Exception
     value::CredentialValue
+    rung::CredentialRung
 end
+# The human label of each rung (AUTH-1 provenance: what the doctor and an auth
+# error print; never a value).
+const RUNG_LABELS=Dict(
+    "env:AWS_ACCESS_KEY_ID"=>"env \$AWS_ACCESS_KEY_ID (+SECRET, +SESSION_TOKEN)",
+    "assume-role"=>"profile assume-role via STS",
+    "web-identity"=>"web identity via STS",
+    "sso"=>"IAM Identity Center (~/.aws/sso/cache)",
+    "shared-credentials-file"=>"~/.aws/credentials",
+    "login"=>"aws login session (~/.aws/login/cache)",
+    "credential_process"=>"profile credential_process",
+    "config-file"=>"~/.aws/config static keys",
+    "container"=>"container credentials endpoint",
+    "imds"=>"EC2 instance metadata (IMDSv2)",
+    "environment"=>"Entra service principal from AZURE_* env",
+    "workload-identity"=>"Entra workload identity",
+    "managed-identity"=>"Azure managed identity",
+    "az"=>"az account get-access-token",
+    "pwsh"=>"Azure PowerShell Get-AzAccessToken",
+    "azd"=>"azd auth token",
+    "adc-env"=>"GOOGLE_APPLICATION_CREDENTIALS file",
+    "adc-file"=>"gcloud application default credentials file",
+    "metadata"=>"GCE metadata server",
+    "gcloud"=>"gcloud auth print-access-token",
+)
+rung_label(name) = get(RUNG_LABELS, name, startswith(name, "env:") ? "env \$"*name[5:end] : name)
+# AUTH-1 named credentials (2026-09-19): the same four words on every cloud, each
+# covering these rungs only; a named credential never falls through.
+const NAMED_CREDENTIALS=("platform", "workload", "environment", "cli")
+const NAMED_RUNGS=Dict(
+    "aws-chain"=>Dict(
+        "platform"=>("container", "imds"),
+        "workload"=>("web-identity",),
+        "environment"=>("env:AWS_ACCESS_KEY_ID",),
+        "cli"=>("assume-role", "sso", "shared-credentials-file", "login", "credential_process", "config-file"),
+    ),
+    "azure-chain"=>Dict(
+        "platform"=>("managed-identity",),
+        "workload"=>("workload-identity",),
+        "environment"=>("environment",),
+        "cli"=>("az", "pwsh", "azd"),
+    ),
+    "gcp-chain"=>Dict(
+        "platform"=>("metadata",),
+        "workload"=>("adc-env",),
+        "environment"=>("adc-env",),
+        "cli"=>("adc-file", "gcloud"),
+    ),
+)
+const GCP_NAMED_TYPES=Dict("workload"=>("external_account",), "environment"=>("service_account", "impersonated_service_account"))
+const NAMED_MEANING=Dict(
+    "aws-chain"=>Dict(
+        "platform"=>"the ECS/EKS container endpoint, else the EC2 instance role (IMDSv2)",
+        "workload"=>"web identity (AWS_WEB_IDENTITY_TOKEN_FILE + AWS_ROLE_ARN) via STS",
+        "environment"=>"AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY",
+        "cli"=>"the active `aws` profile (assume-role, SSO, shared files, `aws login`, credential_process)",
+    ),
+    "azure-chain"=>Dict(
+        "platform"=>"Azure managed identity",
+        "workload"=>"Entra workload identity (AZURE_FEDERATED_TOKEN_FILE)",
+        "environment"=>"an Entra service principal from AZURE_TENANT_ID / AZURE_CLIENT_ID + secret or certificate",
+        "cli"=>"`az`, Azure PowerShell or `azd` sign-in",
+    ),
+    "gcp-chain"=>Dict(
+        "platform"=>"the attached service account (GCE metadata server)",
+        "workload"=>"workload identity federation (GOOGLE_APPLICATION_CREDENTIALS, type external_account)",
+        "environment"=>"a service-account file (GOOGLE_APPLICATION_CREDENTIALS, type service_account)",
+        "cli"=>"`gcloud auth application-default login` (the ADC file) or `gcloud auth print-access-token`",
+    ),
+)
+named_meaning(policy, name) = NAMED_MEANING[policy.credential_policy][name]
+function check_named(policy, name)
+    name===nothing && return nothing
+    endswith(policy.credential_policy, "-chain") || throw(NotConfiguredError(
+        "$(policy.provider): a named credential ($(repr(name))) names a cloud identity; this door has no cloud chain";
+        provider=policy.provider))
+    name in NAMED_CREDENTIALS || throw(NotConfiguredError(
+        "$(policy.provider): unknown named credential $(repr(name)); one of $(join(repr.(NAMED_CREDENTIALS), ", "))";
+        provider=policy.provider))
+    return name
+end
+"""
+    CredentialSource
+
+Where a resolved cloud credential came from (AUTH-1 provenance): the rung, its label,
+the name that selected it when one did, and the expiry if known. Never the value.
+"""
+struct CredentialSource
+    rung::String
+    label::String
+    named::Maybe{String}
+    expires_at::Maybe{String}
+end
+function describe(s::CredentialSource; now=time())
+    text=s.label
+    s.named===nothing || (text*=" (named credential \"$(s.named)\")")
+    if s.expires_at!==nothing
+        left=floor(Int, expiry_seconds(s.expires_at)-now)
+        text*=if left<=0
+            ", expired"
+        elseif left<3600
+            ", expires in $(max(left ÷ 60, 1)) min"
+        else
+            ", expires in $(left ÷ 3600) h $((left % 3600) ÷ 60) min"
+        end
+    end
+    return text
+end
+Base.show(io::IO, s::CredentialSource) = print(io, "CredentialSource(", describe(s), ")")
 Base.showerror(io::IO, ::ResolvedCredential) = print(io, "credential resolved (<redacted>)")
-function cloud_rungs(policy, ctx; acquire=false)
+function cloud_rungs(policy, ctx; acquire=false, named=nothing)
     rungs=CredentialRung[]
     e=ctx.env
     developer_failed=false
-    function add(name, mechanism, state, fn)
-        push!(rungs, CredentialRung(name, mechanism, state, fn))
+    wanted=named===nothing ? nothing : NAMED_RUNGS[policy.credential_policy][named]
+    function add(name, mechanism, state, fn, detail="")
+        wanted===nothing || name in wanted || return nothing
+        rung=CredentialRung(name, mechanism, state, fn, rung_label(name), detail)
+        push!(rungs, rung)
         if acquire && state!==:absent
             value=try
                 fn()
@@ -855,7 +969,7 @@ function cloud_rungs(policy, ctx; acquire=false)
                 error isa Union{LM15Error,InterruptException} && rethrow()
                 throw(AuthError("cloud credential source failed"; provider=policy.provider))
             end
-            value===nothing || throw(ResolvedCredential(value))
+            value===nothing || throw(ResolvedCredential(value, rung))
         end
         return nothing
     end
@@ -1009,6 +1123,16 @@ function cloud_rungs(policy, ctx; acquire=false)
             ("adc-file", adc_path(ctx)),
         )
             info=path===nothing ? nothing : cloud_json(ctx, path)
+            if name=="adc-env" && info!==nothing && named!==nothing && haskey(GCP_NAMED_TYPES, named)
+                type=string(get(info, "type", ""))
+                if !(type in GCP_NAMED_TYPES[named])
+                    other=named=="workload" ? "environment" : "workload"
+                    why="$path holds $type credentials; that is the named credential \"$other\", not \"$named\""
+                    add(name, "json-file", :absent, ()->throw(NotConfiguredError(why; provider=policy.provider,
+                        credential_hint="credentials=Dict(\"$(policy.provider)\" => \"$other\")")), why)
+                    continue
+                end
+            end
             add(name, "json-file", info===nothing ? :absent : :configured, ()->gcp_info(ctx, info))
         end
         add(
@@ -1032,18 +1156,73 @@ function cloud_rungs(policy, ctx; acquire=false)
     )
     return rungs
 end
-function resolve_cloud(policy, ctx)
+const NOTHING_FOUND_HINTS=Dict(
+    "gcp-chain"=>"on a laptop: `gcloud auth application-default login`; elsewhere: set GOOGLE_APPLICATION_CREDENTIALS to a service-account or workload-identity file, run on Google Cloud with an attached service account, or pass api_keys=Dict(\"<provider>\" => <token or callable>)",
+    "azure-chain"=>"on a laptop: `az login`; elsewhere: a managed identity, AZURE_TENANT_ID + AZURE_CLIENT_ID with a secret or certificate, or api_keys=Dict(\"<provider>\" => <token provider>)",
+    "aws-chain"=>"on a laptop: `aws sso login` or `aws configure`; elsewhere: the instance or container role, AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or api_keys=Dict(\"<provider>\" => <credentials callable>)",
+)
+function probed_summary(rungs)
+    return join(("$(r.label): $(r.availability===:absent ? (isempty(r.detail) ? "absent" : r.detail) : "tried")" for r in rungs), "; ")
+end
+"""Walk the chain online; the first rung that yields wins and is named (AUTH-1
+provenance). With `named`, only that name's rungs run and nothing else is tried."""
+function resolve_cloud_source(policy, ctx; named=nothing)
+    rungs=CredentialRung[]
     try
-        cloud_rungs(policy, ctx; acquire=true)
+        rungs=cloud_rungs(policy, ctx; acquire=true, named)
     catch error
-        error isa ResolvedCredential && return error.value
+        if error isa ResolvedCredential
+            value=error.value
+            expires=value isa Union{BearerToken,AwsCredentials} ? value.expires_at : nothing
+            return value, CredentialSource(error.rung.name, error.rung.label, named, expires)
+        end
         rethrow()
     end
-    return throw(
-        NotConfiguredError("no usable credential in cloud chain"; provider=policy.provider)
-    )
+    if named!==nothing
+        throw(NotConfiguredError(
+            "$(policy.provider): named credential \"$named\" — $(named_meaning(policy, named)) — answered nothing ($(probed_summary(rungs))). This door was told to use that identity only; it will not try the rest of the $(policy.credential_policy) chain.";
+            provider=policy.provider,
+            credential_hint="credentials=Dict(\"$(policy.provider)\" => \"<platform|workload|environment|cli>\") names one identity; omit it to walk the $(policy.credential_policy) chain",
+        ))
+    end
+    hint=get(NOTHING_FOUND_HINTS, policy.credential_policy, nothing)
+    hint===nothing || (hint=replace(hint, "<provider>"=>policy.provider))
+    hint!==nothing && !isempty(policy.env_keys) && (hint="set $(first(policy.env_keys)), or $hint")
+    return throw(NotConfiguredError(
+        "$(policy.provider): no credential found in the $(policy.credential_policy) chain ($(probed_summary(rungs)))";
+        provider=policy.provider, credential_hint=hint,
+    ))
 end
-function cloud_credential_provider(policy, ctx)
+resolve_cloud(policy, ctx; named=nothing) = first(resolve_cloud_source(policy, ctx; named))
+"""
+A cloud chain credential provider (AUTH-2/AUTH-3): resolves once, hands out the value
+until the refresh skew, then re-resolves. `source` names the rung that last answered.
+"""
+mutable struct CloudCredentialProvider
+    policy::AccessPolicy
+    ctx::ChainContext
+    named::Maybe{String}
+    lock::ReentrantLock
+    cached::Union{Nothing,CredentialValue}
+    source::Union{Nothing,CredentialSource}
+end
+Base.show(io::IO, p::CloudCredentialProvider) = print(io, "<cloud credential provider for ", p.policy.provider, ">")
+function (p::CloudCredentialProvider)()
+    return lock(p.lock) do
+        current=p.cached
+        if current===nothing || is_expired(current; now=p.ctx.clock())
+            current, source=resolve_cloud_source(p.policy, p.ctx; named=p.named)
+            p.source=source
+            is_expired(current; now=p.ctx.clock()) && throw(AuthError(
+                "cloud credential is expired; renew the configured credential source (credential came from: $(describe(source; now=p.ctx.clock())))";
+                provider=p.policy.provider))
+            p.cached=current isa BearerToken && current.expires_at===nothing ? nothing : current
+        end
+        return current
+    end
+end
+function cloud_credential_provider(policy, ctx; named=nothing)
+    check_named(policy, named)
     # A provider instance owns one identity. Ambient environment edits must not
     # change the principal underneath an already-cached access token.
     ctx=ChainContext(;
@@ -1055,47 +1234,97 @@ function cloud_credential_provider(policy, ctx)
         http=ctx.http,
         command=ctx.command,
     )
-    mutex=ReentrantLock()
-    cached=Ref{Union{Nothing,CredentialValue}}(nothing)
-    return ()->lock(mutex) do
-        current=cached[]
-        if current===nothing || is_expired(current; now=ctx.clock())
-            current=resolve_cloud(policy, ctx)
-            is_expired(current; now=ctx.clock()) &&
-                throw(AuthError("cloud credential is already expired"; provider=policy.provider))
-            cached[]=current isa BearerToken && current.expires_at===nothing ? nothing : current
+    return CloudCredentialProvider(policy, ctx, named, ReentrantLock(), nothing, nothing)
+end
+const GCLOUD_CONFIG_NAME=r"^[a-z][-a-z0-9]*$"  # gcloud's own rule; keeps the name inside the directory
+gcloud_config_dir(ctx) = rstrip(get(ctx.env, "CLOUDSDK_CONFIG", "~/.config/gcloud"), '/')
+"""The project `gcloud config get project` prints, read from the files gcloud reads
+(AUTH-10, amended 2026-09-26): CLOUDSDK_CORE_PROJECT, then `[core] project` in the active
+configuration (CLOUDSDK_ACTIVE_CONFIG_NAME, else `active_config`, else `default`)."""
+function gcloud_config_project(ctx)
+    value=strip(get(ctx.env, "CLOUDSDK_CORE_PROJECT", ""))
+    isempty(value) || return String(value), "env:CLOUDSDK_CORE_PROJECT"
+    base=gcloud_config_dir(ctx)
+    name=strip(get(ctx.env, "CLOUDSDK_ACTIVE_CONFIG_NAME", ""))
+    isempty(name) && (name=strip(something(cloud_read(ctx, "$base/active_config"), "")))
+    isempty(name) && (name="default")
+    occursin(GCLOUD_CONFIG_NAME, name) || return nothing
+    raw=cloud_read(ctx, "$base/configurations/config_$name")
+    raw===nothing && return nothing
+    config=try
+        parse_ini(raw)
+    catch
+        return nothing
+    end
+    project=strip(get(get(config, "core", Dict{String,String}()), "project", ""))
+    return isempty(project) ? nothing : (String(project), "gcloud-config")
+end
+"""`project/project-id` from the metadata server; offline (the doctor), unprobed."""
+function gcp_metadata_project(ctx; offline=false)
+    lowercase(get(ctx.env, "NO_GCE_CHECK", "")) in ("1", "true") && return nothing
+    offline && return (nothing, "metadata")
+    host=get(ctx.env, "GCE_METADATA_HOST", get(ctx.env, "GCE_METADATA_ROOT", "metadata.google.internal"))
+    response=try
+        cloud_http(ctx, "GET", "http://$host/computeMetadata/v1/project/project-id", Dict("Metadata-Flavor"=>"Google"); timeout=1)
+    catch e
+        e isa InterruptException && rethrow()
+        return nothing
+    end
+    status, _, raw=response
+    value=status==200 ? strip(String(copy(raw))) : ""
+    return !isempty(value) && !occursin(r"[\s/?#]", value) ? (String(value), "metadata") : nothing
+end
+"""
+    profile_settings(policy, ctx; offline=false)
+
+The setting values the cloud's own configuration carries, after the caller and the
+setting's env variables (AUTH-10), as `(value, from)`: the AWS profile's `region`; the
+Google project from the credential file, gcloud's configuration, the ADC file, the
+metadata server. `(nothing, "metadata")` means only the metadata server could answer.
+"""
+function profile_settings(policy, ctx; offline=false)
+    return function (name)
+        if policy.credential_policy=="aws-chain" && name=="region"
+            creds, config, profile=aws_profiles(ctx)
+            value=get(profile_section(config, profile), "region", get(get(creds, profile, Dict()), "region", nothing))
+            return value===nothing || isempty(value) ? nothing : (value, "aws-profile")
+        elseif policy.credential_policy=="gcp-chain" && name=="project"
+            path=get(ctx.env, "GOOGLE_APPLICATION_CREDENTIALS", "")
+            if !isempty(path)
+                info=something(try cloud_json(ctx, path) catch; nothing end, obj())
+                value=first_nonempty(string_field(info, "project_id"), string_field(info, "quota_project_id"))
+                value===nothing || return (value, "adc-env")
+            end
+            found=gcloud_config_project(ctx)
+            found===nothing || return found
+            info=something(try cloud_json(ctx, adc_path(ctx)) catch; nothing end, obj())
+            value=first_nonempty(string_field(info, "quota_project_id"), string_field(info, "project_id"))
+            value===nothing || return (value, "adc-file")
+            return gcp_metadata_project(ctx; offline)
         end
-        return current
+        return nothing
     end
 end
 function cloud_profile_settings(policy, given, env; files=nothing, home=get(env, "HOME", homedir()))
+    # Kept for callers that need values only: the explicit ones, then the profile.
     out=Dict{String,String}(given)
-    ctx=ChainContext(; env, files, home)
-    if policy.credential_policy=="aws-chain" &&
-        !haskey(out, "region") &&
-        all(k->isempty(get(env, k, "")), ("AWS_REGION", "AWS_DEFAULT_REGION"))
-        creds, config, profile=aws_profiles(ctx)
-        region=get(
-            profile_section(config, profile),
-            "region",
-            get(get(creds, profile, Dict()), "region", nothing),
-        )
-        region===nothing || (out["region"]=region)
-    elseif policy.credential_policy=="gcp-chain" &&
-        !haskey(out, "project") &&
-        all(k->isempty(get(env, k, "")), ("GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"))
-        for path in (get(env, "GOOGLE_APPLICATION_CREDENTIALS", nothing), adc_path(ctx))
-            path===nothing && continue
-            info=cloud_json(ctx, path)
-            info===nothing && continue
-            project=first_nonempty(
-                string_field(info, "quota_project_id"), string_field(info, "project_id")
-            )
-            project===nothing || (out["project"]=project; break)
-        end
+    lookup=profile_settings(policy, ChainContext(; env, files, home); offline=true)
+    for setting in (policy.host===nothing ? () : policy.host.settings)
+        haskey(out, setting.name) && continue
+        any(k->!isempty(get(env, k, "")), setting.env) && continue
+        found=lookup(setting.name)
+        found===nothing || found[1]===nothing || (out[setting.name]=found[1])
     end
     return out
 end
+"""
+    explain_cloud(provider; env, api_keys, settings, files, home, credential, base_url)
+
+The offline AUTH-7 walk of a cloud door: rung 0 (`api_keys`) then the chain, or only the
+rungs a named `credential` covers; each host setting with where it came from; and the base
+URL the door will send to with its origin (the explicit entry, the vendor's variable by
+name, or the template).
+"""
 function explain_cloud(
     provider;
     env=ENV,
@@ -1103,18 +1332,48 @@ function explain_cloud(
     settings=Dict(),
     files=nothing,
     home=get(env, "HOME", homedir()),
+    credential=nothing,
+    base_url=nothing,
 )
     p=provider_definition(provider)
     source=explicit_source(p.id, api_keys)
+    named=check_named(p.access, credential)
+    named!==nothing && source!==nothing && throw(NotConfiguredError(
+        "$(p.id): both an api_keys entry and the named credential \"$named\"; give one"; provider=p.id))
     selected=source!==nothing
-    shown=Dict{String,String}(settings)
-    try
-        shown=resolve_settings(
-            p.access, cloud_profile_settings(p.access, settings, env; files, home); env
-        )
-    catch error
-        error isa NotConfiguredError || rethrow()
-        shown["error"]=error.message
+    ctx=ChainContext(; env, files, home)
+    endpoint, endpoint_from=if base_url!==nothing
+        base_url, "explicit"
+    else
+        var_value, var=endpoint_from_env(p.access.host, env)
+        var_value, var===nothing ? nothing : "env:$var"
+    end
+    origins=Dict{String,String}()
+    problems=NotConfiguredError[]
+    shown=resolve_settings(
+        p.access, settings; env, profile=profile_settings(p.access, ctx; offline=true),
+        endpoint, sources=origins, unprobed_ok=true, problems,
+    )
+    report_settings=OrderedDict{String,Any}()
+    for setting in p.access.host.settings
+        origin=get(origins, setting.name, nothing)
+        origin===nothing && continue  # an optional setting an endpoint made unnecessary
+        report_settings[setting.name]=if origin=="missing"
+            (value=nothing, from=nothing, state=nothing)
+        elseif startswith(origin, "unprobed:")
+            (value=nothing, from=origin[10:end], state="unprobed")
+        else
+            (value=shown[setting.name], from=origin, state=nothing)
+        end
+    end
+    url=nothing
+    if isempty(problems)
+        url=try
+            render_base_url(p.access.host, shown, endpoint; provider=p.id)
+        catch e
+            e isa NotConfiguredError || rethrow()
+            nothing
+        end
     end
     ctx=ChainContext(; env, files, home, settings=shown)
     steps=[
@@ -1124,7 +1383,7 @@ function explain_cloud(
             selected ? :selected : :absent,
         ),
     ]
-    for rung in cloud_rungs(p.access, ctx)
+    for rung in cloud_rungs(p.access, ctx; named)
         state=if rung.availability===:absent
             :absent
         elseif selected
@@ -1139,14 +1398,22 @@ function explain_cloud(
             AuthStep(
                 rung.name,
                 if state===:unprobed
-                    "configured; $(rung.mechanism) runs at request time"
+                    "$(rung.label): configured; $(rung.mechanism) runs at request time"
+                elseif state===:absent && !isempty(rung.detail)
+                    "$(rung.label): $(rung.detail)"
                 else
-                    "$(rung.mechanism); values never shown"
+                    "$(rung.label): $(rung.mechanism); values never shown"
                 end,
                 state,
             ),
         )
         selected |= state===:selected
     end
-    return AuthReport(p.id, steps, selected || any(s->s.state===:unprobed, steps), shown)
+    return AuthReport(
+        p.id, steps, selected || any(s->s.state===:unprobed, steps),
+        Dict{String,String}(k=>v.value for (k, v) in report_settings if v.value!==nothing);
+        settings_from=report_settings,
+        base_url=url, base_url_from=url===nothing ? nothing : something(endpoint_from, "template"),
+        named, problems=[e.message for e in problems],
+    )
 end

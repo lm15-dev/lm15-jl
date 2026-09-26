@@ -62,14 +62,9 @@ const GEMINI_ERROR_MAP=Dict(
 # MAP-15: the pinned forms of a provider's "no such model" answer that carry no
 # model-specific code and no not-found class (lm15-contract
 # spec/model-not-found.json, carried verbatim; each form has a live receipt).
-const MODEL_NOT_FOUND_FORMS=(
-    (code="not_found_error", prefix="model: "),  # Anthropic, Claude Code
-    (code="invalid_request_error", contains="The supported API model names are "),  # DeepSeek
-    (code="1211",),  # Z.AI: Unknown Model
-    (code="1214", prefix="modelCode: "),  # Z.AI: the model field is invalid
-    (code="400", suffix=" is not a valid model ID"),  # OpenRouter
-    (code="invalid-argument", prefix="Model not found: "),  # xAI (2026-09-01)
-    (code="validation_error", contains="The provided model identifier is invalid"),  # Bedrock Chat
+const MODEL_NOT_FOUND_FORMS=Tuple(
+    (; (Symbol(k)=>v for (k, v) in form if k in ("code", "prefix", "contains", "suffix"))...) for
+    form in JSON.parse(read(joinpath(@__DIR__, "data", "model_not_found.json"), String))
 )
 function pinned_model_not_found(code, message)
     (code isa AbstractString && !isempty(code)) || return false
@@ -105,6 +100,7 @@ function context_error(message)
     )
 end
 function normalize_error(l::ProviderLM, status, body)
+    l.dialect=="typesafe" && return typesafe_error(l, status, body)
     data=try
         JSON.parse(body)
     catch
@@ -189,11 +185,42 @@ function normalize_error(l::ProviderLM, status, body)
     end
     if error isa AuthError &&
         (l.access.credential_policy=="oauth" || l.credentials_source===:stored)
-        return AuthError(
+        error=AuthError(
             message; status=Int(status), metadata..., credential_hint=l.access.login_hint
         )
+    elseif error isa AuthError
+        # A cloud door refusing an identity is an IAM or token question, not a
+        # mistyped key: say which role, or which kind of credential.
+        hint=wire_auth_hint(l.access, status, sent_credential_kind(l))
+        hint===nothing || (error=with_metadata(error; credential_hint=hint))
+    end
+    if error isa AuthError
+        # AUTH-1 provenance: where the rejected credential came from, never the value.
+        origin=try
+            credential_origin(l)
+        catch e
+            e isa InterruptException && rethrow()
+            nothing
+        end
+        origin===nothing || (error=with_metadata(error; credential_origin=origin))
     end
     return error
+end
+"""What a client sends: "key", "token", or nothing when a callable decides per request."""
+function sent_credential_kind(l)
+    c=l.credential
+    c isa CloudCredentialProvider && return "token"
+    c isa BearerToken && return "token"
+    c isa ApiKey && return looks_like_access_token(c.value)===nothing ? "key" : "token"
+    c isa AbstractString && return looks_like_access_token(c)===nothing ? "key" : "token"
+    return nothing
+end
+function wire_auth_hint(policy, status, sent)
+    policy.credential_policy=="gcp-chain" || return nothing
+    status==403 && return "give the identity named above the Vertex AI User role (roles/aiplatform.user) on the project and enable the Vertex AI API (aiplatform.googleapis.com); a new project or a new grant can take a few minutes to apply. To use another identity: `gcloud auth application-default login`, or GOOGLE_APPLICATION_CREDENTIALS=<file>"
+    status==401 || return nothing
+    sent=="key" && return "Google refused this API key: use a Vertex AI key (Cloud console > APIs & Services > Credentials, restricted to the Vertex AI API or bound to a service account); Claude on Vertex takes no keys. If the value is an access token that does not start with `ya29.`, pass BearerToken(value)"
+    return "Google refused this access token: it expired (they last an hour; pass a callable, or let lm15's chain refresh it) or it is not an OAuth token. Sign in again with `gcloud auth application-default login`"
 end
 function error_detail(l, code, message)
     table=if l.dialect=="anthropic"
@@ -313,7 +340,7 @@ function usage_from(dialect, raw; live=false)
         input_tokens=get(d, chat ? "prompt_tokens" : "input_tokens", nothing),
         output_tokens=get(d, chat ? "completion_tokens" : "output_tokens", nothing),
         total_tokens=get(d, "total_tokens", nothing),
-        cache_read_tokens=get(input, "cached_tokens", nothing),
+        cache_read_tokens=first_nonempty(get(input, "cached_tokens", nothing), chat ? get(d, "cached_tokens", nothing) : nothing),
         cache_write_tokens=get(input, "cache_write_tokens", nothing),
         reasoning_tokens=get(output, "reasoning_tokens", nothing),
         input_audio_tokens=get(input, "audio_tokens", nothing),
@@ -867,10 +894,17 @@ function parse_response(l::ProviderLM, r::Request, response::HttpResponse)
     d=JSON.parse(String(copy(response.body)))
     d isa AbstractDict ||
         throw(GenericProviderError("response body must be a JSON object"; provider=l.provider))
-    l.dialect=="openai-responses" && return parse_openai_response(l, r, d)
-    l.dialect=="openai-chat" && return parse_chat_response(l, r, d)
-    l.dialect=="anthropic" && return parse_anthropic_response(l, r, d)
-    return parse_gemini_response(l, r, d)
+    l.dialect=="typesafe" && return parse_typesafe_response(l, r, d, response)
+    parsed=if l.dialect=="openai-responses"
+        parse_openai_response(l, r, d)
+    elseif l.dialect=="openai-chat"
+        parse_chat_response(l, r, d)
+    elseif l.dialect=="anthropic"
+        parse_anthropic_response(l, r, d)
+    else
+        parse_gemini_response(l, r, d)
+    end
+    return fold_judgments(parsed, r)
 end
 function response_from_openai_chat(body; model=nothing, choice=nothing)
     resolved=first_nonempty(get(body, "model", nothing), model)

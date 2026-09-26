@@ -20,6 +20,14 @@ function to_dict(value::Canonical; include_provider_data=false)
     for name in fieldnames(T)
         name === :provider_data && value isa Response && !include_provider_data && continue
         v = getfield(value, name)
+        if value isa DataPart && name === :value
+            d["value"] = v  # an opaque payload: always emitted, null included (serde-rules.md)
+            continue
+        end
+        if name === :logprobs_complete
+            v || (d["logprobs_complete"] = false)  # omitted when true; false is data
+            continue
+        end
         v === nothing && continue
         encoded = if name === :expires_at && value isa CredentialValue
             normalized_time(v)
@@ -154,6 +162,7 @@ function from_dict(::Type{T}, data::AbstractDict) where {T<:Canonical}
             kw[name] = v isa AbstractString ? base64decode(v) : nothing
         elseif name === :prefix && C === CachedPrefix
             kw[name] = from_dict(Request, v)
+
         elseif any(T -> T <: Canonical, Base.uniontypes(fieldtype(C, name)))
             # Field names are not types: ErrorDetail.message is text, and
             # CacheConfig.resource is an id, unlike Response.message and

@@ -11,6 +11,7 @@ const ANTHROPIC_BUILTINS=Dict(
 const GEMINI_BUILTINS=Dict("web_search"=>"googleSearch", "code_execution"=>"codeExecution")
 function openai_input(p::Part, provider)
     p isa TextPart && return obj("type"=>"input_text", "text"=>p.text)
+    p isa DataPart && return obj("type"=>"input_text", "text"=>data_part_text(p))
     if p isa ImagePart
         p.file_id!==nothing && return obj("type"=>"input_image", "file_id"=>p.file_id)
         d=obj("type"=>"input_image", "image_url"=>p.url===nothing ? media_uri(p) : p.url)
@@ -44,10 +45,13 @@ function chat_image(p::ImagePart, provider)
 end
 function chat_content(parts, provider; force_array=false)
     length(parts)==1 && first(parts) isa TextPart && !force_array && return first(parts).text
+    length(parts)==1 && first(parts) isa DataPart && !force_array && return data_part_text(first(parts))
     out=Any[]
     for p in parts
         if p isa TextPart
             push!(out, obj("type"=>"text", "text"=>p.text))
+        elseif p isa DataPart
+            push!(out, obj("type"=>"text", "text"=>data_part_text(p)))
         elseif p isa ImagePart
             push!(out, chat_image(p, provider))
         else
@@ -121,10 +125,29 @@ function stable_prefix(request, control)
            request.config.cache.prefix=="stable" &&
            control=="openai"
 end
+# MAP-10: a message part a dialect has no content slot for in that role raises
+# before any wire (changes/2026-09-24-message-media.md); `feature` is its path.
+const NO_MESSAGE_SLOT=Dict(
+    "anthropic"=>(role, kind)->kind in ("audio", "video", "binary"),
+    "openai-responses"=>(role, kind)->role=="assistant",
+    "openai-chat"=>(role, kind)->role=="assistant",
+)
+function check_message_media(l, r)
+    gap=get(NO_MESSAGE_SLOT, l.dialect, nothing)
+    gap===nothing && return nothing
+    for (i, m) in enumerate(r.messages), (j, p) in enumerate(m.parts)
+        p isa MediaPart && gap(m.role, kind(p)) && refuse(
+            l.provider, "messages[$(i-1)].parts[$(j-1)]",
+            "the program depends on this $(m.role) $(kind(p)) part; no native $(l.dialect) content slot carries it (MAP-10)",
+        )
+    end
+end
 function openai_cache!(payload, r, c, provider; boundary=breakpoint_index(r, c.cache_control))
     cache=r.config.cache
     cache===nothing && return nothing
-    cache.resource===nothing || unsupported(provider, "stored cache resource")
+    # MAP-6 rule 7: a stored-cache resource where there is no such tier raises;
+    # dropping it would send the request without the prefix it holds.
+    cache.resource===nothing || refuse(provider, "config.cache.resource", "this provider has no stored-cache tier; sending without it would drop the prompt prefix the resource holds")
     if !(c.cache_control in ("openai", "openai_implicit"))
         # MAP-13: the key and the lifetime have no home on this server.
         cache.key===nothing || adapt!("config.cache.key", "dropped", "this server has no cache affinity field; implicit caching still applies"; asked=cache.key)
@@ -322,6 +345,14 @@ function openai_reasoning!(d, reasoning, c, l; chat=false)
     if chat && format=="none"
         adapt!("config.reasoning", "dropped", "this server has no reasoning dial on its wire (compat thinking_format='none'); the model reasons at its own default; pass the server's own knob through extensions"; asked=obj("effort"=>reasoning.effort))
         return nothing
+    end
+    if chat && reasoning.effort=="off" && c.reasoning_off=="lowest"
+        # The model cannot stop reasoning and this server accepts the off word and
+        # reasons anyway (compat reasoning_off): send the lowest level and say so
+        # (MAP-13 §4.2, xAI's rule).
+        lowest=c.reasoning_efforts===nothing || isempty(c.reasoning_efforts) ? "low" : first(c.reasoning_efforts)
+        adapt!("config.reasoning.effort", "substituted", "this model cannot stop reasoning and the server accepts 'none' and reasons anyway (a paid no-op); the lowest level was sent"; asked="off", applied=lowest)
+        reasoning=reconstruct(reasoning; effort=lowest)
     end
     off=reasoning.effort=="off"
     word=off ? "none" : reasoning.effort
@@ -525,6 +556,9 @@ function openai_payload(l, r; stream=false, chat=false)
         if chat && c.json_schema=="reject" && config.response_format["type"]=="json_schema"
             adapt!("config.response_format", "dropped", "this server accepts response_format type 'json_schema' and does not apply it; use {'type': 'json_object'} and describe the shape in the prompt"; asked=config.response_format)
         else
+            # MAP-14: the judgment convention goes verbatim (strict honours
+            # anyOf/const/title); a distribution cannot be measured here.
+            note_unmeasurable_probabilities(r, l.provider)
             d[chat ? "response_format" : "text"]=structured_openai(config.response_format; chat)
         end
     end
@@ -566,6 +600,7 @@ function anthropic_source(p::MediaPart)
 end
 function anthropic_part(l, p, c)
     p isa TextPart && return obj("type"=>"text", "text"=>p.text)
+    p isa DataPart && return obj("type"=>"text", "text"=>data_part_text(p))
     p isa Union{ImagePart,DocumentPart} &&
         return obj("type"=>kind(p), "source"=>anthropic_source(p))
     p isa MediaPart && unsupported(l.provider, "$(kind(p)) on Messages")
@@ -677,7 +712,7 @@ function anthropic_payload(l, r; stream=false)
     if cache !== nothing
         cache.key===nothing || adapt!("config.cache.key", "dropped", "the Messages API has no cache affinity key (OpenAI's prompt_cache_key); marks on blocks are its mechanism"; asked=cache.key)
         cache.retention=="long" && c.cache_control!="anthropic" && adapt!("config.cache.retention", "dropped", "this server caches implicitly and has no cache-control TTL"; asked="long")
-        cache.resource===nothing || unsupported(l.provider, "stored cache resource")
+        cache.resource===nothing || refuse(l.provider, "config.cache.resource", "this server has no stored-cache tier; sending without it would drop the prompt prefix the resource holds")
     end
     if usecache
         idx=if cache.prefix_until_index===nothing
@@ -750,8 +785,11 @@ function anthropic_payload(l, r; stream=false)
             config.response_format["type"]=="json_schema" || throw(UnsupportedFeatureError(
                 "anthropic: response_format json_object is not supported — the Messages API has no any-JSON mode; give a json_schema (objects need additionalProperties: false)";
                 provider=l.provider, feature="config.response_format"))
+            # MAP-14 §2: a judgment property carrying type+anyOf has its type moved
+            # into every branch (the wire 400s on the combination).
+            note_unmeasurable_probabilities(r, l.provider)
             output=get!(d, "output_config", obj())
-            output["format"]=obj("type"=>"json_schema", "schema"=>config.response_format["schema"])
+            output["format"]=obj("type"=>"json_schema", "schema"=>anthropic_schema(config.response_format["schema"], request_judgments(r)))
         end
     end
     config.store===false && adapt!("config.store", "satisfied", "the Messages API has no stored-response object to opt out of; nothing retrievable is kept"; asked=false)
@@ -804,6 +842,8 @@ function gemini_part(l, p, names)
         fr=obj("name"=>name, "response"=>response, "id"=>p.id)
         isempty(media) || (fr["parts"]=[gemini_part(l, v, names) for v in media])
         return obj("functionResponse"=>fr)
+    elseif p isa DataPart
+        return obj("text"=>data_part_text(p))
     elseif p isa Union{TextPart,ThinkingPart}
         d=obj("text"=>p.text)
     else
@@ -835,18 +875,45 @@ function gemini_messages(l, messages; from=1)
     end
     return out
 end
-contains_key(d, k) =
-    if d isa AbstractDict
-        haskey(d, k) || any(v->contains_key(v, k), values(d))
-    elseif d isa AbstractVector
-        any(v->contains_key(v, k), d)
-    else
-        false
+# Gemini's Schema object: the keys its OpenAPI fields (responseSchema, parameters) parse.
+const GEMINI_SCHEMA_FIELDS=Set((
+    "type", "format", "title", "description", "nullable", "enum", "maxItems", "minItems",
+    "properties", "required", "minProperties", "maxProperties", "minLength", "maxLength",
+    "pattern", "example", "anyOf", "propertyOrdering", "default", "items", "minimum", "maximum",
+))
+"""
+MAP-16: can Gemini's OpenAPI field carry `schema`? No when a schema node (the root, a
+value of `properties`, `items`, an element of `anyOf`) is a boolean, has a key that is
+not a Schema field, has a list `type`, or an `enum` with a non-string element. `example`
+and `default` are values, never walked.
+"""
+function gemini_openapi_schema(schema)
+    stack=Any[schema]
+    while !isempty(stack)
+        node=pop!(stack)
+        node isa Bool && return false
+        node isa AbstractDict || continue
+        for (key, value) in node
+            key in GEMINI_SCHEMA_FIELDS || return false
+            key=="type" && value isa AbstractVector && return false
+            key=="enum" && value isa AbstractVector && any(v->!(v isa AbstractString), value) && return false
+            if key=="properties" && value isa AbstractDict
+                append!(stack, collect(values(value)))
+            elseif key=="items"
+                push!(stack, value)
+            elseif key=="anyOf"
+                value isa AbstractVector ? append!(stack, value) : push!(stack, value)
+            end
+        end
     end
+    return true
+end
 function gemini_tools(tools)
     functions=[
-        obj("name"=>t.name, "description"=>t.description, "parameters"=>t.parameters) for
-        t in tools if t isa FunctionTool
+        obj(
+            "name"=>t.name, "description"=>t.description,
+            (gemini_openapi_schema(t.parameters) ? "parameters" : "parametersJsonSchema")=>t.parameters,
+        ) for t in tools if t isa FunctionTool
     ]
     out=Any[]
     isempty(functions) || push!(out, obj("functionDeclarations"=>functions))
@@ -906,9 +973,13 @@ function gemini_payload(l, r)
     if config.response_format!==nothing
         f=config.response_format
         gen["responseMimeType"]="application/json"
-        f["type"]=="json_schema" && (
-            gen[contains_key(f["schema"], "additionalProperties") ? "responseJsonSchema" : "responseSchema"]=f["schema"]
-        )
+        if f["type"]=="json_schema"
+            # MAP-14 §2: judgment properties go as enum with the descriptions
+            # folded into the property description.
+            note_unmeasurable_probabilities(r, l.provider)
+            schema=gemini_schema(f["schema"], request_judgments(r))
+            gen[gemini_openapi_schema(schema) ? "responseSchema" : "responseJsonSchema"]=schema
+        end
     end
     reasoning=config.reasoning
     if reasoning!==nothing
@@ -980,6 +1051,8 @@ function gemini_payload(l, r)
 end
 function build_payload(l, r; stream=false)
     validate(r)
+    check_message_media(l, r)
+    l.dialect=="typesafe" && return typesafe_payload(l, r; stream)
     l.dialect=="openai-responses" && return openai_payload(l, r; stream)
     l.dialect=="openai-chat" && return openai_payload(l, r; stream, chat=true)
     l.dialect=="anthropic" && return anthropic_payload(l, r; stream)
@@ -988,9 +1061,13 @@ end
 build_request(l::ProviderLM, r::Request; stream=false) = first(build_request_adapted(l, r; stream))
 # The wire request and the MAP-13 record of what its build adapted.
 function build_request_adapted(l::ProviderLM, r::Request; stream=false)
+    stream && l.dialect=="typesafe" &&
+        refuse(l.provider, "stream", "systemone answers in one piece; there is no stream to wrap")
     require_surface(l, stream ? :stream : :complete)
     payload, records=collecting(()->build_payload(l, r; stream), l.adaptations, l.provider)
-    endpoint=if l.dialect=="openai-responses"
+    endpoint=if l.dialect=="typesafe"
+        "v1/systemone"
+    elseif l.dialect=="openai-responses"
         "responses"
     elseif l.dialect=="openai-chat"
         "chat/completions"

@@ -31,6 +31,7 @@ Base.@kwdef struct HostSpec
     stream_framing::String = "sse"
     required_headers::Tuple = ()
     sigv4_service::Maybe{String} = nothing
+    endpoint_env::Tuple = ()
 end
 Base.@kwdef struct AccessPolicy
     provider::String
@@ -56,13 +57,17 @@ Base.@kwdef struct ProviderDefinition
     placeholder_key::Maybe{String} = nothing
     console_url::Maybe{String} = nothing
     note::String = ""
+    aliases::Tuple = ()
 end
 canonical_provider(name::AbstractString) = replace(String(name), '_'=>'-')
+tuple_of(v) = v isa AbstractVector ? Tuple(x isa AbstractVector ? Tuple(x) : x for x in v) : v
 function policy_from_dict(d)
-    kw=Dict{Symbol,Any}(Symbol(k)=>v for (k, v) in d)
-    kw[:supports]=EndpointSupport(; (Symbol(k)=>v for (k, v) in get(d, "supports", obj()))...)
+    kw=Dict{Symbol,Any}(Symbol(k)=>v for (k, v) in d if v!==nothing)
+    kw[:supports]=EndpointSupport(;
+        (Symbol(k)=>tuple_of(v) for (k, v) in get(d, "supports", obj()))...
+    )
     for key in (:auth_modes, :enterprise_variants, :env_keys, :auth_scheme, :headers)
-        haskey(kw, key) && (kw[key]=Tuple(kw[key]))
+        haskey(kw, key) && (kw[key]=tuple_of(kw[key]))
     end
     if get(kw, :host, nothing) !== nothing
         host=kw[:host]
@@ -72,9 +77,9 @@ function policy_from_dict(d)
                 name=s["name"], env=Tuple(get(s, "env", [])), default=get(s, "default", nothing)
             ) for s in get(host, "settings", [])
         )
-        h[:required_headers]=Tuple(get(host, "required_headers", []))
-        # Fields this port does not use yet (endpoint_env, 2026-09-19) are skipped, not an error.
-        filter!(kv->first(kv) in fieldnames(HostSpec), h)
+        h[:required_headers]=tuple_of(get(host, "required_headers", []))
+        h[:endpoint_env]=tuple_of(get(host, "endpoint_env", []))
+        filter!(kv->first(kv) in fieldnames(HostSpec) && last(kv)!==nothing, h)
         kw[:host]=HostSpec(; h...)
     end
     return AccessPolicy(; kw...)
@@ -84,6 +89,7 @@ const PROVIDERS = let rows=JSON.parse(read(joinpath(@__DIR__, "data", "providers
     for row in rows
         kw=Dict{Symbol,Any}(Symbol(k)=>v for (k, v) in row)
         kw[:access]=policy_from_dict(row["access"])
+        haskey(kw, :aliases) && (kw[:aliases]=tuple_of(kw[:aliases]))
         table[row["id"]]=ProviderDefinition(; kw...)
     end
     table
@@ -239,20 +245,29 @@ function looks_like_jwt(value::AbstractString)
     end
 end
 
+"""
+    looks_like_access_token(text)
+
+The token shape a plain string has, if any (AUTH-2, amended 2026-09-19 and 2026-09-26):
+`"JWT"` (JWS compact: Entra, OIDC) or `"Google access token"` (`ya29.`). No key any door
+issues has either shape; `nothing` otherwise.
+"""
+function looks_like_access_token(text::AbstractString)
+    startswith(text, "ya29.") && return "Google access token"
+    looks_like_jwt(text) && return "JWT"
+    return nothing
+end
 function credential_headers(
     policy::AccessPolicy, credential::CredentialValue; api_key_header="x-api-key"
 )
     scheme = select_scheme(policy, credential)
+    # AUTH-2 (2026-09-19, 2026-09-26): a token-shaped string on a key header door
+    # that also lists bearer travels as bearer, the only reading that can succeed.
     if credential isa ApiKey &&
         scheme in ("api-key", "x-api-key") &&
         "bearer" in policy.auth_scheme &&
-        looks_like_jwt(credential.value)
-        throw(
-            NotConfiguredError(
-                "this credential looks like a bearer token; wrap it in BearerToken(token) instead of passing a key string";
-                provider=policy.provider,
-            ),
-        )
+        looks_like_access_token(credential.value)!==nothing
+        scheme = "bearer"
     end
     if scheme == "bearer"
         return Dict("authorization" => "Bearer " * credential.value)
@@ -264,51 +279,164 @@ function credential_headers(
     return Dict{String,String}()
 end
 
-function resolve_settings(policy::AccessPolicy, given; env=Dict{String,String}())
-    host=policy.host
-    host === nothing && return Dict{String,String}(given)
-    out=Dict{String,String}()
-    for setting in host.settings
-        value=get(given, setting.name, nothing)
-        if value === nothing || isempty(value)
-            value=nothing
-            for key in setting.env
-                isempty(get(env, key, "")) || (value=env[key]; break)
-            end
-        end
-        value === nothing && (value=setting.default)
-        value === nothing && throw(
-            NotConfiguredError(
-                "required host setting $(setting.name) is missing"; provider=policy.provider
-            ),
-        )
-        out[setting.name]=value
+# AUTH-10 host templates: a root (scheme and host) and a door path (2026-09-19 D4).
+function root_template(host::HostSpec)
+    scheme, rest=split(host.base_url, "://"; limit=2)
+    return scheme*"://"*first(split(rest, '/'; limit=2))
+end
+function path_template(host::HostSpec)
+    rest=split(host.base_url, "://"; limit=2)[2]
+    bits=split(rest, '/'; limit=2)
+    return length(bits)==2 ? "/"*bits[2] : ""
+end
+template_names(t) = Set(m.captures[1] for m in eachmatch(r"\{(\w+)\}", t))
+"""Settings an endpoint override makes unnecessary: in the root template only, not in
+the door path, not in a required header, not the SigV4 signing region."""
+function url_only_settings(host::HostSpec)
+    in_root=template_names(root_template(host))
+    if "location_host" in in_root
+        delete!(in_root, "location_host")
+        push!(in_root, "location")
     end
-    all(k->haskey(out, k), keys(given)) || throw(ArgumentError("unknown host setting"))
+    out=setdiff(in_root, template_names(path_template(host)), Set(last(p) for p in host.required_headers))
+    host.sigv4_service===nothing || delete!(out, "region")
     return out
 end
-function host_base_url(host::HostSpec, settings)
-    values=copy(settings)
+"""The first non-empty vendor endpoint variable this door honours (HostSpec.endpoint_env)."""
+function endpoint_from_env(host, env)
+    (host===nothing || env===nothing) && return nothing, nothing
+    for var in host.endpoint_env
+        value=strip(get(env, var, ""))
+        isempty(value) || return String(value), var
+    end
+    return nothing, nothing
+end
+"""
+    join_endpoint(endpoint, path)
+
+An endpoint (a URL root) joined with a door's path, appended unless the endpoint already
+ends with it or with a leading part of it (AUTH-10, amended 2026-09-19).
+"""
+function join_endpoint(endpoint::AbstractString, path::AbstractString; provider="")
+    uri=try
+        HTTP.URI(strip(endpoint))
+    catch
+        throw(NotConfiguredError("$(isempty(provider) ? "host" : provider): endpoint must be an http(s) URL with a host"; provider=isempty(provider) ? nothing : provider))
+    end
+    uri.scheme in ("http", "https") && !isempty(uri.host) || throw(NotConfiguredError(
+        "$(isempty(provider) ? "host" : provider): endpoint must be an http(s) URL with a host"; provider=isempty(provider) ? nothing : provider))
+    (!isempty(uri.query) || !isempty(uri.fragment) || !isempty(uri.userinfo) || occursin(r"[?#]", endpoint)) && throw(NotConfiguredError(
+        "$(isempty(provider) ? "host" : provider): endpoint must not carry a query, fragment or userinfo"; provider=isempty(provider) ? nothing : provider))
+    given=[String(x) for x in split(uri.path, '/') if !isempty(x)]
+    door=[String(x) for x in split(path, '/') if !isempty(x)]
+    base=given
+    for k in min(length(given), length(door)):-1:1
+        if given[(end - k + 1):end]==door[1:k]
+            base=given[1:(end - k)]
+            break
+        end
+    end
+    joined=join(vcat(base, door), "/")
+    authority=uri.host*(isempty(uri.port) ? "" : ":"*uri.port)
+    return "$(uri.scheme)://$(authority)"*(isempty(joined) ? "" : "/"*joined)
+end
+"""
+    resolve_settings(policy, given; env, profile, endpoint, sources, unprobed_ok, problems)
+
+A host's settings: the caller's values, then the setting's env variables (when `env` is
+given), then the cloud's own configuration (`profile(name)` → `(value, from)`, `value`
+`nothing` meaning only a network source could answer), then defaults (AUTH-10). With an
+`endpoint`, settings only the URL root needed are optional. `sources` receives each
+setting's origin in the AUTH-10 `from` vocabulary; `unprobed_ok` (the offline doctor)
+records a network-only setting as `unprobed:<from>`; `problems` collects missing-setting
+errors instead of raising them.
+"""
+function resolve_settings(
+    policy::AccessPolicy, given; env=Dict{String,String}(), profile=nothing, endpoint=nothing,
+    sources=nothing, unprobed_ok=false, problems=nothing,
+)
+    host=policy.host
+    host === nothing && return Dict{String,String}(given)
+    left=Dict{String,String}(String(k)=>String(v) for (k, v) in given)
+    relaxed=endpoint===nothing ? Set{String}() : url_only_settings(host)
+    record=sources===nothing ? Dict{String,String}() : sources
+    out=Dict{String,String}()
+    missing=nothing
+    for setting in host.settings
+        value=pop!(left, setting.name, nothing)
+        origin="explicit"
+        if value === nothing || isempty(value)
+            value=nothing
+            if env!==nothing
+                for key in setting.env
+                    isempty(get(env, key, "")) || (value=env[key]; origin="env:$key"; break)
+                end
+            end
+        end
+        unprobed=nothing
+        if value===nothing && profile!==nothing
+            found=profile(setting.name)
+            if found!==nothing
+                if found[1]===nothing || isempty(found[1])
+                    unprobed=found[2]
+                else
+                    value, origin=found
+                end
+            end
+        end
+        if value===nothing && setting.default!==nothing
+            value, origin=setting.default, "default"
+        end
+        if value===nothing
+            setting.name in relaxed && continue
+            if unprobed!==nothing && unprobed_ok
+                record[setting.name]="unprobed:$unprobed"
+                continue
+            end
+            hint=isempty(setting.env) ? "pass settings=Dict(\"$(setting.name)\" => ...)" : "set $(join(setting.env, " or "))"
+            setting.name=="project" && (hint*=", run `gcloud config set project <id>`, or pass settings=Dict(\"project\" => ...)")
+            setting.name in url_only_settings(host) && !isempty(host.endpoint_env) &&
+                (hint*=", or the endpoint: $(join(host.endpoint_env, " or "))")
+            record[setting.name]="missing"
+            missing===nothing && (missing=NotConfiguredError(
+                "$(policy.provider): setting $(repr(setting.name)) is required and has no default";
+                provider=policy.provider, credential_hint=hint,
+            ))
+            continue
+        end
+        out[setting.name]=value
+        record[setting.name]=origin
+    end
+    isempty(left) || throw(ArgumentError(
+        "$(policy.provider): unknown host setting(s) $(join(sort!(collect(keys(left))), ", ")); known: $(join((s.name for s in host.settings), ", "))"))
+    if missing!==nothing
+        problems===nothing && throw(missing)
+        push!(problems, missing)
+    end
+    return out
+end
+function location_host(loc)
+    loc == "global" && return "aiplatform.googleapis.com"
+    loc in ("us", "eu") && return "aiplatform.$loc.rep.googleapis.com"
+    return "$loc-aiplatform.googleapis.com"
+end
+"""The base URL for these settings; an endpoint replaces the template's root and the
+door path is appended unless already present (`join_endpoint`)."""
+function render_base_url(host::HostSpec, settings, endpoint=nothing; provider="")
+    values=Dict{String,String}(settings)
     for key in ("region", "resource", "location")
         haskey(values, key) &&
             !occursin(r"^[A-Za-z0-9-]+$", values[key]) &&
             throw(NotConfiguredError("host setting $key must be a DNS label"))
     end
-    if haskey(values, "location")
-        loc=values["location"]
-        values["location_host"]=if loc == "global"
-            "aiplatform.googleapis.com"
-        elseif loc in ("us", "eu")
-            "aiplatform.$loc.rep.googleapis.com"
-        else
-            "$loc-aiplatform.googleapis.com"
-        end
-    end
+    haskey(values, "location") && (values["location_host"]=location_host(values["location"]))
     haskey(values, "project") && (values["project"]=percent_encode(values["project"]))
-    url=host.base_url
+    url=endpoint===nothing ? host.base_url : path_template(host)
     for (k, v) in values
         url=replace(url, "{$k}"=>v)
     end
-    occursin('{', url) && throw(NotConfiguredError("unresolved host URL setting"))
-    return url
+    m=match(r"\{(\w+)\}", url)
+    m===nothing || throw(NotConfiguredError("host base URL needs setting $(repr(m.captures[1]))"))
+    return endpoint===nothing ? url : join_endpoint(endpoint, url; provider)
 end
+host_base_url(host::HostSpec, settings) = render_base_url(host, settings)

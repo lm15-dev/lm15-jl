@@ -668,6 +668,7 @@ Base.@kwdef mutable struct StreamAccumulator
     slots::Dict{Int,StreamSlot} = Dict{Int,StreamSlot}()
     continuation::Vector{ContinuationState} = ContinuationState[]
     logprobs::Vector{TokenLogprob} = TokenLogprob[]
+    logprobs_complete::Bool = true
     adaptations::Tuple = ()
 end
 StreamAccumulator(r::Request) = StreamAccumulator(; request=r)
@@ -694,6 +695,8 @@ function Base.push!(acc::StreamAccumulator, event::StreamEvent)
             slot.text===nothing && (slot.text=IOBuffer())
             write(slot.text, d.text)
             append!(acc.logprobs, d.logprobs)
+            # A later true never erases false (types.md TextDelta).
+            acc.logprobs_complete &= d.logprobs_complete
         elseif d isa ThinkingDelta
             slot.thinking===nothing && (slot.thinking=IOBuffer())
             write(slot.thinking, d.text)
@@ -832,6 +835,8 @@ function assemble(acc; skip=Set{Int}())
     has_tool=any(p->p isa ToolCallPart, parts)
     finish=something(acc.finish_reason, has_tool ? "tool_call" : "stop")
     finish=="stop" && has_tool && (finish="tool_call")
+    # MAP-14 §3: a streamed judgment answer materializes as a DataPart.
+    parts=collect(replace_text_with_data(parts, request_judgments(acc.request)))
     return Response(;
         id=acc.id,
         model=something(acc.model, acc.request.model),
@@ -839,6 +844,7 @@ function assemble(acc; skip=Set{Int}())
         finish_reason=finish,
         usage=acc.usage,
         logprobs=isempty(acc.logprobs) ? nothing : Tuple(acc.logprobs),
+        logprobs_complete=acc.logprobs_complete,
         provider_data=acc.provider_data,
         adaptations=acc.adaptations,
     )
@@ -1002,6 +1008,8 @@ end
 """Expose a complete response as canonical events without inventing missing deltas."""
 function response_to_events(answer::Response)
     validate(answer)
+    !answer.logprobs_complete && !any(p->p isa TextPart, answer.message.parts) && throw(ArgumentError(
+        "cannot stream incomplete logprobs without a TextPart to carry their coverage"))
     for p in answer.message.parts
         p isa Union{TextPart,ThinkingPart,ImagePart,AudioPart,CitationPart,ToolCallPart} ||
             throw(ArgumentError("$(kind(p)) has no stream delta representation"))
@@ -1019,11 +1027,13 @@ function response_to_events(answer::Response)
     EventStream() do emit, _
         emit(StreamStartEvent(; id=answer.id, model=answer.model))
         logprobs=answer.logprobs===nothing ? () : answer.logprobs
+        complete=answer.logprobs_complete
         for (position, p) in enumerate(answer.message.parts)
             index=position-1
             delta=if p isa TextPart
-                fragment=TextDelta(; text=p.text, part_index=index, logprobs)
+                fragment=TextDelta(; text=p.text, part_index=index, logprobs, logprobs_complete=complete)
                 logprobs=()
+                complete=true
                 fragment
             elseif p isa ThinkingPart
                 ThinkingDelta(; text=p.text, part_index=index)
@@ -1088,6 +1098,63 @@ function first_stop(text, stops)
     return best
 end
 is_text_event(e)=e isa StreamDeltaEvent && e.delta isa TextDelta
+"""
+Keep original scores for whole retained tokens; never score a token fragment
+(changes/2026-09-15-stop-filter-score-preservation.md). Token bytes decide alignment;
+spellings only when their UTF-8 bytes exactly rebuild the text. Returns
+`(scores, incomplete)`.
+"""
+function scores_before_cut(scores, text, cut_at)
+    (isempty(scores) || cut_at==0) && return (), false
+    cut_at==length(text) && return Tuple(scores), false
+    token_bytes=[s.bytes===nothing ? Vector{UInt8}(codeunits(s.token)) : UInt8[b for b in s.bytes] for s in scores]
+    original=Vector{UInt8}(codeunits(text))
+    boundary=ncodeunits(first(text, cut_at))
+    reduce(vcat, token_bytes; init=UInt8[])==original || return (), true
+    finish=0
+    for (i, data) in enumerate(token_bytes)
+        finish==boundary && return Tuple(scores[1:(i - 1)]), false
+        finish+=length(data)
+        finish>boundary && return Tuple(scores[1:(i - 1)]), true
+    end
+    return Tuple(scores), false
+end
+"""
+    apply_client_side_stop(response, stop)
+
+Cut a response's visible text at the first stop sequence (MAP-13 client-side stop): the
+text parts are one stream; the part holding the start is cut, later parts removed, and
+scores are kept only for whole retained tokens.
+"""
+function apply_client_side_stop(answer::Response, stop)
+    stops=[String(s) for s in stop if !isempty(s)]
+    isempty(stops) && return answer
+    texts=[(i, p) for (i, p) in enumerate(answer.message.parts) if p isa TextPart]
+    joined=join(p.text for (_, p) in texts)
+    hit=first_stop(joined, stops)
+    hit===nothing && return answer
+    cut_chars=length(joined[1:prevind(joined, hit)])
+    offset=0
+    cut_index, cut_at=isempty(texts) ? (0, 0) : (first(last(texts)), 0)
+    for (i, p) in texts
+        if offset+length(p.text)>cut_chars
+            cut_index, cut_at=i, cut_chars-offset
+            break
+        end
+        offset+=length(p.text)
+    end
+    parts=Part[]
+    for (i, p) in enumerate(answer.message.parts)
+        i>cut_index && break
+        push!(parts, i==cut_index ? reconstruct(p; text=first(p.text, cut_at)) : p)
+    end
+    isempty(parts) && push!(parts, TextPart(""))
+    scores, incomplete=scores_before_cut(something(answer.logprobs, ()), joined, cut_chars)
+    return reconstruct(answer;
+        message=reconstruct(answer.message; parts=Tuple(parts)), finish_reason="stop",
+        logprobs=isempty(scores) ? nothing : scores,
+        logprobs_complete=answer.logprobs_complete && !incomplete)
+end
 function truncate_stream_at_stop(events, stop)
     stops=[String(s) for s in stop if !isempty(s)]
     isempty(stops) && return events
@@ -1107,9 +1174,12 @@ function truncate_stream_at_stop(events, stop)
                 if length(t)<=count
                     emit(popfirst!(held)); count-=length(t)
                 elseif cutting
-                    # A cut delta keeps no token scores: a score never describes a fragment.
+                    # Scores survive for whole retained tokens; a cut token loses its
+                    # score and the coverage is marked incomplete (2026-09-15).
+                    scores, incomplete=scores_before_cut(e.delta.logprobs, t, count)
                     cut=String(first(t, count))
-                    emit(reconstruct(e; delta=reconstruct(e.delta; text=cut, logprobs=())))
+                    emit(reconstruct(e; delta=reconstruct(e.delta; text=cut, logprobs=scores,
+                        logprobs_complete=e.delta.logprobs_complete && !incomplete)))
                     break
                 else
                     break

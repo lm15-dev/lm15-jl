@@ -9,6 +9,8 @@ const VOCABULARIES = Dict(
     :outcome => ("succeeded", "errored", "cancelled", "expired"),
     :encoding => ("pcm16", "opus", "mp3", "aac"),
     :detail => ("low", "high", "auto"),
+    :method => ("provider_classification", "candidate_sequence_likelihood"),
+    :probabilities => ("off", "if_available", "required"),
 )
 const PART_VARIANTS = Dict(
     "text"=>TextPart,
@@ -22,6 +24,7 @@ const PART_VARIANTS = Dict(
     "binary"=>BinaryPart,
     "tool_call"=>ToolCallPart,
     "tool_result"=>ToolResultPart,
+    "data"=>DataPart,
 )
 const DELTA_VARIANTS = Dict(
     "text"=>TextDelta,
@@ -76,7 +79,81 @@ function integer_value(value)
     return Int(value)
 end
 checked_token_sum(a, b) = Base.Checked.checked_add(integer_value(a), integer_value(b))
+# INV-052: {field: {key: probability}}, inner maps non-empty, floats in [0, 1]; the
+# sum is not validated (providers round).
+function normalize_probabilities(value)
+    value isa AbstractDict && !isempty(value) ||
+        throw(ArgumentError("DataPart.probabilities must be a non-empty mapping of field -> {key: probability}"))
+    out = JSONObject()
+    for (name, dist) in value
+        name isa AbstractString && !isempty(name) ||
+            throw(ArgumentError("DataPart.probabilities keys must be non-empty strings"))
+        dist isa AbstractDict && !isempty(dist) ||
+            throw(ArgumentError("DataPart.probabilities[$(repr(name))] must be a non-empty mapping"))
+        inner = JSONObject()
+        for (key, p) in dist
+            key isa AbstractString && !isempty(key) ||
+                throw(ArgumentError("DataPart.probabilities[$(repr(name))] keys must be non-empty strings"))
+            p isa Real && !(p isa Bool) && isfinite(p) && 0 <= p <= 1 ||
+                throw(ArgumentError("DataPart.probabilities[$(repr(name))][$(repr(key))] must be a number in [0, 1]"))
+            inner[String(key)] = Float64(p)
+        end
+        out[String(name)] = inner
+    end
+    return out
+end
+# Error diagnostics (docs/error-diagnostics.md): the closed header set kept on an
+# error and on ErrorDetail.http_response; at most four printable values per name.
+const RATE_LIMIT_HEADERS = Set(vcat(
+    ["retry-after", "retry-after-ms", "x-ms-retry-after-ms", "x-ratelimit-type", "x-ratelimit-abusepenalty-active"],
+    ["x-ratelimit-$f-$u" for f in ("limit", "remaining", "reset", "renewalperiod") for u in ("requests", "tokens")],
+    ["anthropic-ratelimit-$u-$f" for u in ("requests", "tokens", "input-tokens", "output-tokens") for f in ("limit", "remaining", "reset")],
+))
+function capture_rate_limits(headers)
+    out = OrderedDict{String,Vector{String}}()
+    for (name, value) in headers
+        name isa AbstractString && value isa AbstractString || continue
+        name = lowercase(name)
+        name in RATE_LIMIT_HEADERS && 1 <= ncodeunits(value) <= 256 || continue
+        all(c -> ' ' <= c <= '~', value) || continue
+        values = get!(out, name, String[])
+        length(values) < 4 && push!(values, String(value))
+    end
+    return OrderedDict{String,Tuple}(k => Tuple(v) for (k, v) in out)
+end
+function normalize_http_response(value)
+    value isa AbstractDict || throw(ArgumentError("ErrorDetail.http_response must be an object"))
+    isempty(setdiff(keys(value), ("request_id", "retry_after", "rate_limit_headers"))) ||
+        throw(ArgumentError("unknown ErrorDetail.http_response field"))
+    out = JSONObject()
+    id = get(value, "request_id", nothing)
+    if id !== nothing
+        id isa AbstractString && !isempty(id) ||
+            throw(ArgumentError("http_response.request_id must be a non-empty string"))
+        out["request_id"] = String(id)
+    end
+    wait = get(value, "retry_after", nothing)
+    if wait !== nothing
+        wait isa Real && !(wait isa Bool) && isfinite(wait) && wait >= 0 ||
+            throw(ArgumentError("http_response.retry_after must be finite nonnegative seconds"))
+        out["retry_after"] = Float64(wait)
+    end
+    if haskey(value, "rate_limit_headers")
+        headers = value["rate_limit_headers"]
+        headers isa AbstractDict &&
+            all(v -> v isa Union{AbstractVector,Tuple} && all(s -> s isa AbstractString, v), values(headers)) ||
+            throw(ArgumentError("http_response.rate_limit_headers must map names to string arrays"))
+        snapshot = capture_rate_limits((k, s) for (k, v) in headers for s in v)
+        isempty(snapshot) || (out["rate_limit_headers"] = JSONObject(k => collect(v) for (k, v) in snapshot))
+    end
+    return out
+end
 function normalize_field(T, name, value, declared)
+    name === :probabilities && T === DataPart && value !== nothing && return normalize_probabilities(value)
+    name === :http_response && T === ErrorDetail && value !== nothing &&
+        return (v = normalize_http_response(value); isempty(v) ? nothing : v)
+    name === :value && T === DataPart && return check_json(value)
+    name === :provider && T === CachedPrefix && value isa AbstractString && return canonical_provider(value)
     name === :tools && T in (Request, LiveConfig) && return normalize_tools(value)
     name === :extensions && value isa AbstractDict && isempty(value) && return nothing
     if name === :system && value !== nothing
@@ -125,8 +202,15 @@ function require_items(items, T, name; nonempty=false)
     all(v -> v isa T, items) || throw(ArgumentError("$name must contain $T values"))
     return foreach(validate, items)
 end
-prompt_part(p) = p isa Union{TextPart,MediaPart}
-result_part(p) = p isa Union{TextPart,MediaPart,CitationPart}
+prompt_part(p) = p isa Union{TextPart,MediaPart,DataPart}
+result_part(p) = p isa Union{TextPart,MediaPart,CitationPart,DataPart}
+# INV-052: a distribution is a claim about an answer; input carries value alone.
+function check_input_data(parts, where)
+    for p in parts
+        p isa DataPart && p.probabilities !== nothing && throw(ArgumentError(
+            "$where data parts carry value only; probabilities belong to assistant messages (INV-052)"))
+    end
+end
 function validate(x::Canonical)
     T = typeof(x)
     get(CANONICAL_TYPES, string(nameof(T)), nothing) === T ||
@@ -139,6 +223,7 @@ function validate(x::Canonical)
         if v isa AbstractString
             allowempty =
                 name in (:text, :token, :message, :description, :input_delta) ||
+                (name === :value && x isa DataPart) ||
                 (name === :input && x isa ToolCallDelta) ||
                 (
                     x isa Union{AudioDelta,ImageDelta,CitationDelta} &&
@@ -204,10 +289,14 @@ function validate(x::Canonical)
         end
     elseif x isa RefusalPart
         isempty(x.text) && throw(ArgumentError("refusal must not be empty"))
+    elseif x isa DataPart
+        (x.method === nothing) == (x.probabilities === nothing) ||
+            throw(ArgumentError("DataPart.method is present iff DataPart.probabilities is (INV-052)"))
     elseif x isa Union{ToolResultPart,LiveClientToolResultEvent}
         require_items(x.content, Part, "content"; nonempty=true)
         all(result_part, x.content) ||
             throw(ArgumentError("tool results cannot contain protocol parts"))
+        check_input_data(x.content, "tool result")
     elseif x isa Message
         require_items(x.parts, Part, "parts"; nonempty=true)
         x.role == "tool" &&
@@ -219,6 +308,7 @@ function validate(x::Canonical)
         x.role in ("user", "developer") &&
             !all(prompt_part, x.parts) &&
             throw(ArgumentError("prompt messages cannot contain protocol parts"))
+        x.role == "assistant" || check_input_data(x.parts, x.role)
     elseif x isa Reasoning
         x.effort == "off" &&
             (x.thinking_budget !== nothing || x.summary !== nothing) &&
@@ -249,6 +339,8 @@ function validate(x::Canonical)
         x.top_p !== nothing &&
             !(0 <= x.top_p <= 1) &&
             throw(ArgumentError("top_p must lie in [0,1]"))
+        x.temperature !== nothing && x.temperature > 2 &&
+            throw(ArgumentError("temperature must lie in [0,2]"))
         if x.response_format !== nothing
             f = x.response_format
             tag = get(f, "type", nothing)
@@ -291,6 +383,8 @@ function validate(x::Canonical)
     elseif x isa Union{FilePage,CachePage}
         require_items(x.items, x isa FilePage ? FileInfo : CacheInfo, "items")
     elseif x isa CachedPrefix
+        x.provider === nothing || occursin(r"^[^\s:/]+$", x.provider) ||
+            throw(ArgumentError("CachedPrefix.provider must be a provider id without whitespace, ':' or '/'"))
         isempty(to_dict(x.prefix.config)) ||
             throw(ArgumentError("cached prefix cannot have generation settings"))
         x.resource === nothing ||
@@ -330,6 +424,7 @@ function validate(x::Canonical)
         if x.system isa Tuple
             require_items(x.system, Part, "system"; nonempty=true)
             all(prompt_part, x.system) || throw(ArgumentError("system must contain prompt parts"))
+            check_input_data(x.system, "system")
         end
         if x isa Request
             require_items(x.messages, Message, "messages"; nonempty=true)

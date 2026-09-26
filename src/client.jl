@@ -12,6 +12,7 @@ struct ProviderLM{C,T,F}
     clock::F
     credentials_source::Symbol
     adaptations::String
+    credential_origin::Maybe{String}
 end
 function Base.show(io::IO, l::ProviderLM)
     return print(
@@ -56,26 +57,49 @@ function ProviderLM(
     clock=time,
     upload_base_url=nothing,
     adaptations="note",
+    credential=nothing,
+    credential_origin=nothing,
 )
     adaptations=check_policy(adaptations)
     named_compat = compat isa AbstractString ? compat : nothing
     definition=bound_definition(provider, access)
     policy=validate(definition.access)
     source=:explicit
+    named=credential
     credential=api_key
-    # Ordinary direct clients do not select ambient API keys. Cloud profiles
-    # and stored-login path overrides still need the real environment to pick
-    # the correct identity; the router explicitly enables the ordinary chain.
-    resolve_environment_keys = env !== nothing
+    # Ordinary direct clients do not select ambient API keys; the router (which
+    # passes `env`) enables the ordinary key chain. A cloud door's host settings
+    # (region, project, location, endpoint) do follow the environment and the
+    # cloud's own configuration on a direct client too, as the cloud SDKs and the
+    # TypeScript port do (the Python reference reads them in the router only).
+    router_mode = env !== nothing
     env = env === nothing ? Dict(ENV) : copy(env)
     applicable(clock) || throw(ArgumentError("clock must be a zero-argument callable"))
-    if endswith(policy.credential_policy, "-chain")
-        settings=resolve_settings(policy, cloud_profile_settings(policy, settings, env); env)
-        credential===nothing && (
-            credential=cloud_credential_provider(
-                policy, ChainContext(; env, settings, clock=()->clock())
-            )
+    # An explicit base_url on a cloud door is the endpoint root; the door path is
+    # appended unless already present (AUTH-10, amended 2026-09-19).
+    endpoint=nothing
+    if policy.host!==nothing
+        endpoint=base_url===nothing ? first(endpoint_from_env(policy.host, env)) : base_url
+        base_url=nothing
+    end
+    if named!==nothing
+        check_named(policy, named)
+        credential===nothing || (credential isa AbstractString && isempty(credential)) || throw(NotConfiguredError(
+            "$(definition.id): both api_key and credential=$(repr(named)) were given; a door has one identity — pass the credential value, or name the identity, not both";
+            provider=definition.id))
+    end
+    if policy.host!==nothing
+        settings=resolve_settings(
+            policy, settings; env,
+            profile=profile_settings(policy, ChainContext(; env, clock=()->clock())),
+            endpoint,
         )
+    end
+    if endswith(policy.credential_policy, "-chain") && credential===nothing
+        credential=cloud_credential_provider(
+            policy, ChainContext(; env, settings, clock=()->clock()); named
+        )
+        source=named===nothing ? :chain : :named
     end
     if credential===nothing
         if policy.credential_policy=="oauth" || (
@@ -89,18 +113,44 @@ function ProviderLM(
             account_id===nothing && (account_id=c.account_id)
             source=:stored
         else
-            if resolve_environment_keys
-                for key in policy.env_keys
-                    isempty(get(env, key, "")) || (credential=env[key]; break)
+            if policy.credential_policy=="oauth-unless-explicit"
+                # R3 (2026-09-22): a failed or signed-out subscription is never
+                # silently replaced by a metered environment key.
+                state=xai_stored_state(credentials_path; env)
+                if state in (:unusable, :logged_out)
+                    present=[k for k in policy.env_keys if !isempty(get(env, k, ""))]
+                    what=state===:logged_out ? "was signed out" : "is expired and cannot be renewed"
+                    throw(MissingCredentialError(
+                        "the $(repr(definition.id)) subscription login $what. " *
+                        (isempty(present) ? "" : "\$$(first(present)) is set but is used only when passed explicitly: ") *
+                        "sign in again, or pass the key deliberately with api_key=... (or RouterConfig(api_keys=...)).";
+                        provider=definition.id, env_keys=policy.env_keys, credential_hint=policy.login_hint))
                 end
             end
-            credential===nothing && (credential=definition.placeholder_key)
+            if router_mode
+                for key in policy.env_keys
+                    isempty(get(env, key, "")) || (
+                        credential=env[key]; credential_origin="env \$$key (value never shown)"; break
+                    )
+                end
+            end
+            if credential===nothing && definition.placeholder_key!==nothing
+                credential=definition.placeholder_key
+                credential_origin="the local server's placeholder key"
+            end
         end
     end
     credential===nothing && throw(
-        NotConfiguredError(
-            "no credential found; configure an explicit key or token provider";
+        MissingCredentialError(
+            if isempty(policy.env_keys)
+                "no credential found for provider $(repr(definition.id)); pass api_key=... (a string, a credential value, or a zero-argument function)"
+            elseif router_mode
+                "no credential found for provider $(repr(definition.id)). Set $(join(policy.env_keys, " or ")) in the environment, or pass RouterConfig(api_keys=Dict(\"$(definition.id)\" => \"...\"))."
+            else
+                "no credential given for provider $(repr(definition.id)); pass api_key=... (a bare client never reads $(join(policy.env_keys, " or ")); LMRouter does)"
+            end;
             provider=definition.id,
+            env_keys=policy.env_keys,
             credential_hint=policy.login_hint,
         ),
     )
@@ -109,7 +159,7 @@ function ProviderLM(
         throw(NotConfiguredError("empty explicit credential; no fallback"; provider=definition.id))
     (credential isa Union{AbstractString,CredentialValue}) &&
         select_scheme(policy, resolve_credential(credential))
-    settings=resolve_settings(policy, settings; env)
+    policy.host===nothing && (settings=Dict{String,String}(settings))
     CT=if definition.dialect=="openai-chat"
         OpenAIChatCompat
     elseif definition.dialect=="openai-responses"
@@ -133,7 +183,7 @@ function ProviderLM(
     compat === nothing || validate(compat)
     if base_url===nothing
         if policy.host !== nothing
-            base_url = host_base_url(policy.host, settings)
+            base_url = render_base_url(policy.host, settings, endpoint; provider=definition.id)
         elseif named_compat !== nothing
             base_url = preset_url(CT, named_compat)
         elseif policy.base_url !== nothing
@@ -149,6 +199,8 @@ function ProviderLM(
         else
             base_url = if definition.dialect=="gemini"
                 "https://generativelanguage.googleapis.com/v1beta"
+            elseif definition.dialect=="typesafe"
+                TYPESAFE_BASE_URL
             elseif definition.dialect=="anthropic"
                 "https://api.anthropic.com/v1"
             else
@@ -195,7 +247,34 @@ function ProviderLM(
         clock,
         source,
         adaptations,
+        credential_origin===nothing ? origin_label(credential, source) : credential_origin,
     )
+end
+"""The provenance label for a credential the client was handed (AUTH-1): honest about
+what LM15 can see; a callable's identity is not inspected. Never the value."""
+function origin_label(credential, source)
+    (credential===nothing || credential=="") && return "no credential"
+    source===:stored && return "the stored local login (credentials file)"
+    credential isa CloudCredentialProvider && return nothing
+    credential isa Union{AbstractString,CredentialValue} || return "an application-supplied callable (identity not inspected by lm15)"
+    return "an explicit api_key (value never shown)"
+end
+"""
+    credential_origin(client)
+
+Where this client's credential comes from, as a phrase with no secret in it (AUTH-1
+provenance). For a cloud chain, the rung that last answered, or what will be walked
+before the first request.
+"""
+function credential_origin(l::ProviderLM)
+    c=l.credential
+    if c isa CloudCredentialProvider
+        c.source===nothing || return describe(c.source; now=l.clock())
+        c.named===nothing ||
+            return "named credential \"$(c.named)\" ($(named_meaning(l.access, c.named)); not yet resolved)"
+        return "the $(l.access.credential_policy) (not yet resolved)"
+    end
+    return something(l.credential_origin, origin_label(c, l.credentials_source))
 end
 OpenAILM(; kw...) = ProviderLM("openai"; kw...)
 OpenAIChatLM(; kw...) = ProviderLM("openai-chat"; kw...)
@@ -385,7 +464,7 @@ function build_models_request(l::ProviderLM)
     return emit(
         l;
         method="GET",
-        url=l.base_url*"/models",
+        url=l.base_url*(l.dialect=="typesafe" ? "/v1/models" : "/models"),
         params,
         headers=base_headers(l; content_type=l.dialect=="gemini" ? nothing : "application/json"),
     )
@@ -395,13 +474,27 @@ function parse_models_response(l::ProviderLM, r::HttpResponse)
         throw(attach_error_metadata(normalize_error(l, r.status, String(copy(r.body))), r))
     data=JSON.parse(String(copy(r.body)))
     codex=l.access.backend=="chatgpt-codex"
-    entries=getarray(data, codex || l.dialect=="gemini" ? "models" : "data")
+    entries=if l.dialect=="openai-chat"
+        # A chat server answers {"data": [...]} or a bare array (Together); anything
+        # else is a malformed reply, never an empty catalog (2026-09-26).
+        if data isa AbstractVector
+            data
+        elseif data isa AbstractDict && get(data, "data", nothing) isa AbstractVector
+            data["data"]
+        else
+            throw(GenericProviderError("model listing is neither an array nor an object with a data array"; provider=l.provider))
+        end
+    else
+        getarray(data, codex || l.dialect in ("gemini", "typesafe") ? "models" : "data")
+    end
     family=if l.dialect=="openai-responses"
         "openai_responses"
     elseif l.dialect=="openai-chat"
         "openai_chat"
     elseif l.dialect=="anthropic"
         "anthropic_messages"
+    elseif l.dialect=="typesafe"
+        "typesafe_systemone"
     else
         "gemini_generate_content"
     end
@@ -412,7 +505,7 @@ function parse_models_response(l::ProviderLM, r::HttpResponse)
             entry,
             if codex
                 "slug"
-            elseif l.dialect=="gemini"
+            elseif l.dialect in ("gemini", "typesafe")
                 "name"
             else
                 "id"
