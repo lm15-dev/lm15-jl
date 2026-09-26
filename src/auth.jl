@@ -242,21 +242,22 @@ function describe(r::AuthReport)
 end
 Base.show(io::IO, r::AuthReport) = print(io, describe(r))
 Base.show(io::IO, ::MIME"text/plain", r::AuthReport) = show(io, r)
-function explicit_source(provider, api_keys)
+function explicit_source(provider, api_keys; table=PROVIDERS)
     seen=Set{String}()
     for key in keys(api_keys)
-        canonical=canonical_provider(key)
+        canonical=table_provider(table, key)
+        canonical===nothing && throw(NotConfiguredError("unknown provider configuration key $key"))
         canonical in seen &&
             throw(NotConfiguredError("duplicate spellings for provider $canonical"))
         push!(seen, canonical)
-        haskey(PROVIDERS, canonical) ||
-            throw(NotConfiguredError("unknown provider configuration key $key"))
     end
-    exact=[k for k in keys(api_keys) if canonical_provider(k)==provider]
+    exact=[k for k in keys(api_keys) if table_provider(table, k)==provider]
     if isempty(exact)
-        env_keys=provider_definition(provider).access.env_keys
+        # AUTH-1 shared explicit keys: another provider's entry with the
+        # identical non-empty declared env-key list supplies this one.
+        env_keys=table[provider].access.env_keys
         isempty(env_keys) ||
-            (exact=[k for k in keys(api_keys) if provider_definition(k).access.env_keys==env_keys])
+            (exact=[k for k in keys(api_keys) if table[table_provider(table, k)].access.env_keys==env_keys])
     end
     length(exact)>1 && throw(
         NotConfiguredError("ambiguous explicit credentials for $provider; supply one exact entry"),
@@ -281,8 +282,11 @@ function explain_auth(
     home=nothing,
     credential=nothing,
     base_url=nothing,
+    auth=nothing,
+    credentials=Dict{String,String}(),
 )
     environment=env === nothing ? ENV : env
+    auth === nothing || return explain_managed(provider; auth, env=environment, api_keys, api_key_providers, credentials)
     p=provider_definition(provider)
     policy=p.access
     steps=AuthStep[]
@@ -376,6 +380,48 @@ function explain_auth(
         selected=true
     end
     return AuthReport(p.id, steps, selected, Dict{String,String}(settings))
+end
+
+"""AUTH-15 mode B, rung by rung: the explicit entry, the named cloud identity, the scope's
+saved connection; environment keys are shown and marked not consulted. Store reads only,
+no renewal (AUTH-7)."""
+function explain_managed(provider; auth, env, api_keys=Dict(), api_key_providers=String[], credentials=Dict())
+    config=RouterConfig(; auth, env, credentials)
+    table=provider_table(config)
+    id=table_provider(table, provider)
+    id===nothing && throw(UnknownProviderError(canonical_provider(provider)))
+    definition=table[id]
+    keysmap=isempty(api_key_providers) ? api_keys : Dict(k=>ApiKey("presence-only") for k in api_key_providers)
+    steps=AuthStep[]
+    source=explicit_source(id, keysmap; table)
+    selected=source!==nothing
+    push!(steps, AuthStep("api_keys", selected ? "provided via $source (value never shown)" : "not provided",
+        selected ? :selected : :absent))
+    named=provider_setting(credentials, id)
+    if named!==nothing
+        push!(steps, AuthStep("named_cloud", "named credential \"$named\" (explicit)", selected ? :shadowed : :selected))
+        selected=true
+    end
+    st=status(auth, id)
+    if st.connection!==nothing
+        detail="$(st.connection.label) ($(st.usability)" * (st.expires_at===nothing ? "" : ", expires $(st.expires_at)") * ")"
+        state=selected ? :shadowed : (is_ready(st) ? :selected : :absent)
+        push!(steps, AuthStep("connection", "saved connection $(st.connection.id): $detail", state))
+        selected |= state===:selected
+    else
+        push!(steps, AuthStep("connection", st.logged_out ? "signed out (marker present)" :
+            "none saved in $(description(auth.store))", :absent))
+    end
+    for key in definition.access.env_keys
+        present=!isempty(get(env, key, ""))
+        push!(steps, AuthStep("env:$key", present ? "set, not consulted under a managed Auth (pass it explicitly to use it)" : "not set",
+            present ? :shadowed : :absent))
+    end
+    if definition.placeholder_key!==nothing && !st.logged_out
+        push!(steps, AuthStep("placeholder", "preset default for keyless $id servers", selected ? :shadowed : :selected))
+        selected=true
+    end
+    return AuthReport(id, steps, selected)
 end
 
 # An OS-backed lock is released by the kernel even if the process dies. It uses

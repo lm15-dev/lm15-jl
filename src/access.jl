@@ -53,13 +53,49 @@ Base.@kwdef struct ProviderDefinition
     id::String
     dialect::String
     access::AccessPolicy
-    compat::Maybe{String} = nothing
+    compat::Any = nothing
     placeholder_key::Maybe{String} = nothing
     console_url::Maybe{String} = nothing
     note::String = ""
     aliases::Tuple = ()
 end
 canonical_provider(name::AbstractString) = replace(String(name), '_'=>'-')
+const DIALECTS = ("openai-responses", "openai-chat", "anthropic", "gemini", "typesafe")
+"""
+    ProviderDefinition(access; dialect, compat=nothing, note="", placeholder_key=nothing,
+                       console_url=nothing, aliases=())
+
+Declare a provider LM15 does not list (a gateway, a service without an LM15 receipt) for
+one router: `RouterConfig(providers=(definition,))`. The id is `access.provider`; the
+`dialect` (`"openai-chat"`, `"openai-responses"`, `"anthropic"`, `"gemini"`) names the wire;
+`compat` is the dialect's policy object (or a preset name); `access.base_url` says where
+to send. A declared provider is routed and marked `declared` — no LM15 receipt backs it.
+"""
+function ProviderDefinition(access::AccessPolicy; dialect, compat=nothing, note="", placeholder_key=nothing,
+    console_url=nothing, aliases=())
+    id = canonical_provider(access.provider)
+    id == access.provider || throw(ArgumentError("provider id must be hyphenated: $(repr(access.provider))"))
+    dialect in DIALECTS || throw(ArgumentError("unknown dialect $(repr(dialect))"))
+    aliases = Tuple(String(a) for a in aliases)
+    all(a -> !isempty(a) && canonical_provider(a) == a, aliases) || throw(ArgumentError("$id: aliases are hyphenated, non-empty strings"))
+    length(unique(aliases)) == length(aliases) && !(id in aliases) || throw(ArgumentError("$id: aliases repeat a spelling"))
+    placeholder_key !== nothing && !isempty(access.env_keys) &&
+        throw(ArgumentError("$id: a keyless local server declares no env_keys"))
+    if compat !== nothing && !(compat isa AbstractString)
+        expected = Dict("openai-chat"=>OpenAIChatCompat, "openai-responses"=>OpenAIResponsesCompat, "anthropic"=>AnthropicCompat)
+        haskey(expected, dialect) && compat isa expected[dialect] ||
+            throw(ArgumentError("$id: compat for dialect $(repr(dialect)) must be a $(get(expected, dialect, "no compat"))"))
+        access.host === nothing && (access.base_url === nothing || isempty(access.base_url)) &&
+            throw(ArgumentError("$id: a declared provider names its base_url on the access policy"))
+        access.host === nothing && access.credential_policy != "key" &&
+            throw(ArgumentError("$id: a declared provider is key-based; credential_policy $(repr(access.credential_policy)) needs its own client"))
+    end
+    return ProviderDefinition(; id, dialect, access=validate(access), compat, placeholder_key, console_url, note, aliases)
+end
+spellings(d::ProviderDefinition) = (d.id, d.aliases...)
+# The registered provider whose dialect a declared definition borrows.
+const DIALECT_HOME = Dict("openai-responses"=>"openai", "openai-chat"=>"openai-chat", "anthropic"=>"anthropic",
+    "gemini"=>"gemini", "typesafe"=>"typesafe")
 tuple_of(v) = v isa AbstractVector ? Tuple(x isa AbstractVector ? Tuple(x) : x for x in v) : v
 function policy_from_dict(d)
     kw=Dict{Symbol,Any}(Symbol(k)=>v for (k, v) in d if v!==nothing)

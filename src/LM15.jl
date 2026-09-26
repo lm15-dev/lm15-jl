@@ -11,6 +11,7 @@ import JSON as JSONBackend
 using HTTP: HTTP
 using OpenSSL_jll: OpenSSL_jll
 
+pkgversion_string() = string(something(pkgversion(@__MODULE__), v"0.0.0"))
 include("json.jl")
 include("errors.jl")
 include("types.jl")
@@ -36,6 +37,13 @@ include("ingest.jl")
 include("login.jl")
 include("crypto.jl")
 include("cloud.jl")
+include("login/types.jl")
+include("login/store.jl")
+include("login/engine.jl")
+include("login/flows.jl")
+include("login/manager.jl")
+include("login/bound.jl")
+include("login/vet.jl")
 include("ergonomics.jl")
 include("tools.jl")
 include("vet.jl")

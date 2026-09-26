@@ -28,6 +28,7 @@ const VET_OPS=(
     "video_op_parse",
     "replay_live",
     "ingest_openai_chat",
+    "managed_run",
 )
 function wire_dict(r::WireRequest)
     uri=HTTP.URI(r.url)
@@ -114,7 +115,9 @@ end
 function vet_operation(msg)
     op=msg["op"]
     if op=="capabilities"
-        return obj("language"=>"julia", "ops"=>sort!(collect(VET_OPS)), "impl_version"=>"0.3.0-dev")
+        return obj("language"=>"julia", "ops"=>sort!(collect(VET_OPS)), "impl_version"=>pkgversion_string())
+    elseif op=="managed_run"
+        return vet_managed_run(msg)
     elseif op in ("serde_roundtrip", "validate")
         value=to_dict(from_dict(msg["kind"], msg["value"]))
         return op=="validate" ? obj("ok"=>true, "normalized"=>value) : obj("value"=>value)

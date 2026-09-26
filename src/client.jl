@@ -20,6 +20,7 @@ function Base.show(io::IO, l::ProviderLM)
     )
 end
 function bound_definition(provider, access)
+    provider isa ProviderDefinition && return provider
     original = provider_definition(provider)
     access === nothing && return original
     access isa AccessPolicy || throw(ArgumentError("access must be an AccessPolicy"))
@@ -44,7 +45,7 @@ function bound_definition(provider, access)
 end
 
 function ProviderLM(
-    provider::AbstractString;
+    provider::Union{AbstractString,ProviderDefinition};
     api_key=nothing,
     base_url=nothing,
     compat=nothing,

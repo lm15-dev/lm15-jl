@@ -130,11 +130,15 @@ end
 function explain_auth(router::LMRouter, model::AbstractString)
     resolution = resolve(router, model)
     config = router.config
+    config.auth === nothing || return explain_managed(resolution.provider; auth=config.auth,
+        env=config.env === nothing ? ENV : config.env, api_keys=config.api_keys, credentials=config.credentials)
     return explain_auth(
         resolution.provider;
         env=config.env,
         api_keys=config.api_keys,
         settings=provider_setting(config.settings, resolution.provider, Dict{String,String}()),
+        credential=provider_setting(config.credentials, resolution.provider),
+        base_url=provider_setting(config.base_urls, resolution.provider),
     )
 end
 
