@@ -1,5 +1,15 @@
 # LM15.jl
 
+> **Status, 2026-09-26: in development, not yet in Julia's registry.**
+> Install from GitHub: `Pkg.add(url="https://github.com/lm15-dev/lm15-jl")`
+> (Julia 1.10 or newer). The package was last graded as a whole against the
+> contract of 2026-09-11 (`CONTRACT_PIN`, 1,380 of 1,380 checks then) and is
+> being brought up to the current one; every example on lm15.dev runs in
+> Julia (checked 2026-09-26). lm15 is released in [Python](https://github.com/lm15-dev/lm15-python) (1.0.1, stable),
+> [TypeScript](https://github.com/lm15-dev/lm15-ts), [Rust](https://github.com/lm15-dev/lm15-rs)
+> and [Go](https://github.com/lm15-dev/lm15-go) (release candidates); guides in every language at
+> [lm15.dev](https://lm15.dev/docs/).
+
 Call model providers directly from Julia. Build a `Request`, receive a typed
 `Response` or stream, and decide explicitly which Julia tools may run.
 There is no LM15 relay and no hidden tool-execution loop.
