@@ -1,6 +1,9 @@
 const OPENAI_ERROR_MAP=Dict(
     "server_error"=>ServerError,
     "rate_limit_exceeded"=>RateLimitError,
+    # Azure documents these on Responses error frames even under HTTP 200.
+    "no_capacity"=>RateLimitError,
+    "too_many_requests"=>RateLimitError,
     "invalid_prompt"=>InvalidRequestError,
     "vector_store_timeout"=>TimeoutError,
     "context_length_exceeded"=>ContextLengthError,
@@ -891,7 +894,7 @@ function parse_response(l::ProviderLM, r::Request, response::HttpResponse)
             normalize_error(l, response.status, String(copy(response.body))), response
         ),
     )
-    d=JSON.parse(String(copy(response.body)))
+    d=reply_json(l, response)
     d isa AbstractDict ||
         throw(GenericProviderError("response body must be a JSON object"; provider=l.provider))
     l.dialect=="typesafe" && return parse_typesafe_response(l, r, d, response)

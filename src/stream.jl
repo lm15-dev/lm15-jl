@@ -227,8 +227,23 @@ function stream(l::ProviderLM, r::Request)
                         attach_error_metadata(normalize_error(l, head.status, String(body)), head)
                     )
                 end
-                parse_sse(io) do frame
-                    return foreach(emit, parse_stream_events(l, r, frame))
+                http=nothing
+                try
+                    parse_sse(io) do frame
+                        for event in parse_stream_events(l, r, frame)
+                            if event isa StreamErrorEvent
+                                # Handshake evidence on an in-stream error (docs/error-diagnostics.md).
+                                http===nothing && (http=stream_http_response(head.headers))
+                                isempty(http) || (event=reconstruct(event; error=reconstruct(event.error; http_response=http)))
+                            end
+                            emit(event)
+                        end
+                    end
+                catch e
+                    # A provider error raised while parsing the stream also gets
+                    # the handshake diagnostics.
+                    e isa ProviderError && rethrow(attach_error_metadata(e, head))
+                    rethrow()
                 end
             finally
                 filter!(callback -> callback !== stop_read, cancel)
@@ -956,10 +971,14 @@ function Base.iterate(rs::ResponseStream, state=nothing)
         rs, StreamAssemblyError("event arrived after the end event"; partial=rs.result)
     )
     if event isa StreamErrorEvent
+        http=something(event.error.http_response, obj())
+        headers=get(http, "rate_limit_headers", nothing)
         fail_stream!(
             rs,
             error_for_code(
-                event.error.code, event.error.message; provider_code=event.error.provider_code
+                event.error.code, event.error.message; provider_code=event.error.provider_code,
+                request_id=get(http, "request_id", nothing), retry_after=get(http, "retry_after", nothing),
+                rate_limit_headers=headers===nothing ? nothing : capture_rate_limits((k, v) for (k, vs) in headers for v in vs),
             ),
         )
     end

@@ -145,6 +145,10 @@ class_name(::DefaultNotConfiguredError) = "NotConfiguredError"
 function Base.getproperty(e::LM15Error, name::Symbol)
     name === :metadata && return getfield(e, :metadata)
     name === :code && return error_code(e)
+    if e isa CollectionLimitError
+        name === :retained_events && return length(getfield(e, :metadata).partial_events)
+        name === :partial && return partial_turn(e)
+    end
     return getproperty(getfield(e, :metadata), name)
 end
 function Base.propertynames(::LM15Error, private::Bool=false)
@@ -158,6 +162,15 @@ function Base.showerror(io::IO, e::LM15Error)
     print(io, class_name(e), ": ", e.message)
     e.provider === nothing || print(io, " (", e.provider, ")")
     e.status === nothing || print(io, " [HTTP ", e.status, "]")
+    e.request_id === nothing || print(io, " [request ", e.request_id, "]")
+    pieces = String[]
+    e.retry_after === nothing || push!(pieces, "Retry advice: $(e.retry_after) seconds (not a guarantee).")
+    if e.rate_limit_headers !== nothing && !isempty(e.rate_limit_headers)
+        raw = JSON.serialize(JSONObject(k => collect(e.rate_limit_headers[k]) for k in sort!(collect(keys(e.rate_limit_headers)))))
+        ncodeunits(raw) > 2048 && (raw = first(raw, 2048) * "... [full retained values in rate_limit_headers]")
+        push!(pieces, "Provider rate-limit headers (raw; advisory): " * escape_string(raw))
+    end
+    isempty(pieces) || print(io, "\n\n  ", join(pieces, "\n  "))
     e.credential_origin === nothing || print(io, "\n  credential came from: ", e.credential_origin)
     return e.credential_hint === nothing || print(io, "\nTo fix: ", e.credential_hint)
 end

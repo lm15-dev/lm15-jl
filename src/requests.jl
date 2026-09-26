@@ -557,8 +557,13 @@ function openai_payload(l, r; stream=false, chat=false)
             adapt!("config.response_format", "dropped", "this server accepts response_format type 'json_schema' and does not apply it; use {'type': 'json_object'} and describe the shape in the prompt"; asked=config.response_format)
         else
             # MAP-14: the judgment convention goes verbatim (strict honours
-            # anyOf/const/title); a distribution cannot be measured here.
-            note_unmeasurable_probabilities(r, l.provider)
+            # anyOf/const/title). A server that scores named tokens measures the
+            # distribution in complete() (scoring.jl); stream() and every other
+            # wire answer with generated JSON.
+            if !chat || stream || !scores_named_tokens(l, r)
+                chat && stream && judgments_via_token_scoring(l, r) ? judgment_stream_policy(l, r) :
+                    note_unmeasurable_probabilities(r, l.provider)
+            end
             d[chat ? "response_format" : "text"]=structured_openai(config.response_format; chat)
         end
     end
@@ -1098,5 +1103,6 @@ read. Raises what the call would raise; returns the full record under every poli
 """
 function plan(l::ProviderLM, r::Request; stream=false)
     require_surface(l, stream ? :stream : :complete)
+    !stream && judgments_via_token_scoring(l, r) && return judgment_adaptations(l, r)
     return last(collecting(()->build_payload(l, r; stream), l.adaptations, l.provider))
 end

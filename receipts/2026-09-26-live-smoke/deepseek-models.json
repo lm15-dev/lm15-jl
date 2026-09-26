@@ -1,0 +1,1 @@
+{"result":{"binding":"deepseek","model":"deepseek:deepseek-v4-flash","check":"models","verdict":"ok","notes":["2 models"],"problems":[]},"exchanges":[{"sent":{"method":"GET","url":"https://api.deepseek.com/models","headers":{"authorization":"<redacted>","content-type":"application/json"},"body":null},"status":200}],"lm15":[{"ids":["deepseek-flash","deepseek-v4-pro"]}]}

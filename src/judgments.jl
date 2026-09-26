@@ -216,23 +216,33 @@ end
 expected_level(distribution) = sum(Float64(p) * parse(Int, string(k)) for (k, p) in distribution)
 
 # §4 helpers that emit the convention.
+# Options in order: a vector of keys, of `key => description` pairs, or an ordered
+# dictionary (a plain Dict has no order, so its keys would be offered in hash order).
+function option_items(options; bare_is_key=true)
+    options isa AbstractDict && return [String(k) => v for (k, v) in options]
+    options isa Union{AbstractVector,Tuple} || throw(ArgumentError("options must be a vector of keys or of key => description pairs"))
+    return [o isa Pair ? (first(o) === nothing ? nothing : String(first(o))) => last(o) :
+        bare_is_key ? String(o) => nothing : nothing => o for o in options]
+end
 """
     choice(instruction, options)
 
-A choice judgment property: `options` is a list of keys or a `key => description` map.
+A choice judgment property. `options` is a vector of keys (`["fruit", "oak"]`) or of
+`key => description` pairs (`["fruit" => "Fruit-forward", "other" => nothing]`), in the
+order offered.
 """
 function choice(instruction::AbstractString, options)
-    items = options isa AbstractDict ? collect(pairs(options)) : [k => nothing for k in options]
+    items = option_items(options)
     isempty(items) && throw(ArgumentError("choice needs at least one option"))
     all(p -> first(p) isa AbstractString && !isempty(first(p)), items) ||
         throw(ArgumentError("choice option keys must be non-empty strings"))
     length(unique(first.(items))) == length(items) || throw(ArgumentError("choice option keys must be unique"))
     prop = obj("type" => "string", "description" => String(instruction))
     if all(p -> last(p) === nothing, items)
-        prop["enum"] = Any[String(first(p)) for p in items]
+        prop["enum"] = Any[first(p) for p in items]
     else
         prop["anyOf"] = Any[
-            last(p) === nothing ? obj("const" => String(first(p))) : obj("const" => String(first(p)), "description" => String(last(p)))
+            last(p) === nothing ? obj("const" => first(p)) : obj("const" => first(p), "description" => String(last(p)))
             for p in items]
     end
     return prop
@@ -246,10 +256,11 @@ yes_no(instruction::AbstractString) = obj("type" => "boolean", "description" => 
 """
     score(instruction, levels)
 
-An ordered judgment: levels from low to high, as descriptions or `name => description`.
+An ordered judgment: levels from low to high, as descriptions (`["bad", "fine", "great"]`)
+or `name => description` pairs (`["bad" => "Undrinkable", ...]`); keys are `0…n-1`.
 """
 function score(instruction::AbstractString, levels)
-    items = levels isa AbstractDict ? collect(pairs(levels)) : [nothing => d for d in levels]
+    items = option_items(levels; bare_is_key=false)
     length(items) >= 2 || throw(ArgumentError("score needs at least two levels"))
     length(items) <= MAX_ORDERED_LEVELS || throw(ArgumentError("score takes at most $MAX_ORDERED_LEVELS levels"))
     branches = Any[]

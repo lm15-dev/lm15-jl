@@ -31,7 +31,7 @@ function multipart_related(metadata, mime, data)
     write(
         io,
         "--$boundary\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n",
-        JSON.serialize(metadata),
+        wire_json(metadata),
         "\r\n--$boundary\r\nContent-Type: $mime\r\n\r\n",
         data,
         "\r\n--$boundary--\r\n",
@@ -182,7 +182,7 @@ function file_info(l, d)
 end
 function parse_file_response(l::ProviderLM, r::HttpResponse; page=false)
     check_response_status(l, r)
-    d=JSON.parse(String(copy(r.body)))
+    d=reply_json(l, r)
     if !page
         l.dialect=="gemini" && get(d, "file", nothing) isa AbstractDict && (d=d["file"])
         return file_info(l, d)
@@ -315,7 +315,7 @@ function cache_info(l, d)
 end
 function parse_cache_response(l, r; page=false)
     check_response_status(l, r)
-    d=JSON.parse(String(copy(r.body)))
+    d=reply_json(l, r)
     return if page
         CachePage(;
             items=Tuple(

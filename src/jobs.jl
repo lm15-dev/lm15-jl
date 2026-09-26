@@ -78,7 +78,7 @@ function build_batch_requests(
                 anthropic ||
                 begin
                     lines=[
-                        JSON.serialize(
+                        wire_json(
                             obj(
                                 "custom_id"=>string(i-1),
                                 "method"=>"POST",
@@ -191,7 +191,7 @@ function build_batch_requests(
 end
 function parse_batch_response(l, r::HttpResponse; list=false)
     check_response_status(l, r)
-    d=JSON.parse(String(copy(r.body)))
+    d=reply_json(l, r)
     return if list
         [
             batch_info(l, x) for
@@ -499,7 +499,7 @@ function video_info(l, d; id=nothing)
 end
 function parse_video_response(l, r::HttpResponse; list=false, id=nothing)
     check_response_status(l, r)
-    d=JSON.parse(String(copy(r.body)))
+    d=reply_json(l, r)
     return if list
         [
             video_info(l, x) for

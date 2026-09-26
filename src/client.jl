@@ -371,8 +371,7 @@ function emit(
             unsupported(l.provider, "$(host.stream_framing) framing")
     end
     if payload!==nothing
-        check_json(payload)
-        body=Vector{UInt8}(codeunits(JSON.serialize(payload)))
+        body=Vector{UInt8}(codeunits(wire_json(payload)))
         get!(headers, "content-type", "application/json")
     end
     url=with_query(url, params)
@@ -394,33 +393,92 @@ function emit(
         method, url, Pair{String,String}[String(k)=>String(v) for (k, v) in headers], body
     )
 end
-function attach_error_metadata(e::LM15Error, r::HttpResponse)
-    kw=Dict{Symbol,Any}(n=>getfield(e.metadata, n) for n in fieldnames(ErrorMetadata))
-    if e.request_id===nothing
-        for key in (
-            "x-request-id", "request-id", "x-amzn-requestid", "x-amz-request-id", "x-ms-request-id"
-        )
-            v=header(r, key)
-            v===nothing || (kw[:request_id]=v; break)
+function retry_after_seconds(value)
+    value===nothing && return nothing
+    seconds=tryparse(Float64, strip(value))
+    if seconds===nothing
+        seconds=try
+            datetime2unix(DateTime(strip(value), dateformat"e, dd u yyyy HH:MM:SS \G\M\T"))-time()
+        catch
+            nothing
         end
+        seconds===nothing || (seconds=max(0.0, seconds))
+    end
+    return seconds!==nothing && isfinite(seconds) && seconds>=0 ? seconds : nothing
+end
+function milliseconds_seconds(value)
+    value===nothing && return nothing
+    ncodeunits(value)<=256 && occursin(r"^\+?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$", strip(value)) || return nothing
+    n=parse(Float64, strip(value))
+    return isfinite(n) && n>=0 ? n/1000 : nothing
+end
+const REQUEST_ID_HEADERS=("x-request-id", "request-id", "x-amzn-requestid", "x-amz-request-id",
+    "x-ms-request-id", "apim-request-id", "x-typesafe-request-id")
+"""
+Fill HTTP diagnostics the body did not give (docs/error-diagnostics.md): the bounded
+rate-limit header snapshot, a retry hint (body value, else the first Retry-After, else
+retry-after-ms, else x-ms-retry-after-ms), and the request id. Never invents a field.
+"""
+function attach_error_metadata(e::LM15Error, headers)
+    headers=headers isa HttpResponse ? headers.headers : headers
+    kw=Dict{Symbol,Any}()
+    snapshot=capture_rate_limits(headers)
+    isempty(snapshot) || (kw[:rate_limit_headers]=snapshot)
+    first_header(name)=begin
+        for (k, v) in headers
+            lowercase(k)==name && return String(v)
+        end
+        nothing
     end
     if e.retry_after===nothing
-        value=header(r, "retry-after")
-        if value!==nothing
-            seconds=tryparse(Float64, value)
-            if seconds===nothing
-                try
-                    seconds=max(
-                        0.0,
-                        datetime2unix(DateTime(value, dateformat"e, dd u yyyy HH:MM:SS GMT"))-time(),
-                    )
-                catch
-                end
-            end
-            seconds===nothing || !isfinite(seconds) || seconds<0 || (kw[:retry_after]=seconds)
+        seconds=retry_after_seconds(first_header("retry-after"))
+        for name in ("retry-after-ms", "x-ms-retry-after-ms")
+            seconds===nothing || break
+            seconds=milliseconds_seconds(first_header(name))
+        end
+        seconds===nothing || (kw[:retry_after]=seconds)
+    end
+    if e.request_id===nothing
+        for name in REQUEST_ID_HEADERS
+            v=first_header(name)
+            v===nothing || isempty(v) || (kw[:request_id]=v; break)
         end
     end
-    return typeof(e)(ErrorMetadata(; kw...))
+    return isempty(kw) ? e : with_metadata(e; kw...)
+end
+"""The handshake evidence for an error event inside a successful stream: request id,
+retry hint and rate-limit headers (never a status: the handshake's 200 is not the error's)."""
+function stream_http_response(headers)
+    probe=attach_error_metadata(GenericProviderError(""), headers)
+    http=JSONObject()
+    probe.request_id===nothing || (http["request_id"]=probe.request_id)
+    probe.retry_after===nothing || (http["retry_after"]=probe.retry_after)
+    probe.rate_limit_headers===nothing || isempty(probe.rate_limit_headers) ||
+        (http["rate_limit_headers"]=JSONObject(k=>collect(v) for (k, v) in probe.rate_limit_headers))
+    return http
+end
+"""
+The body of a success reply as JSON. A body that is not JSON (a gateway's HTML page behind
+a 200, a truncated reply) is a `ProviderError` carrying the status, content type, the first
+200 bytes and the request id (INV-054); never retried, never a ServerError.
+"""
+function reply_json(l, r::HttpResponse)
+    text=String(copy(r.body))
+    failure=nothing
+    if isvalid(text)
+        try
+            return JSON.parse(text)
+        catch e
+            e isa InterruptException && rethrow()
+            failure=e
+        end
+    end
+    content_type=something(header(r, "content-type"), "no content-type")
+    excerpt=first(isvalid(text) ? text : String(map(c->isvalid(c) ? c : '\ufffd', collect(text))), 200)
+    length(text)>200 && (excerpt*="…")
+    throw(attach_error_metadata(GenericProviderError(
+        "the reply (HTTP $(r.status), $content_type, $(length(r.body)) bytes) is not JSON. Body starts: $(repr(excerpt)). A gateway or proxy in front of the provider is the usual cause; the request may or may not have been served.";
+        provider=l.provider, status=r.status), r))
 end
 function send_request(l, r::WireRequest)
     open_response(client_transport(l), r) do head, io
@@ -442,6 +500,7 @@ end
 function complete(l::ProviderLM, request::Request)
     require_surface(l, :complete)
     validate(request)
+    judgments_via_token_scoring(l, request) && return judgment_complete(l, request)
     l.access.backend=="chatgpt-codex" && return materialize_response(stream(l, request), request)
     wire, records=build_request_adapted(l, request; stream=false)
     # MAP-13: a stop sequence the wire cannot take is honoured by streaming and
@@ -473,7 +532,7 @@ end
 function parse_models_response(l::ProviderLM, r::HttpResponse)
     r.status>=400 &&
         throw(attach_error_metadata(normalize_error(l, r.status, String(copy(r.body))), r))
-    data=JSON.parse(String(copy(r.body)))
+    data=reply_json(l, r)
     codex=l.access.backend=="chatgpt-codex"
     entries=if l.dialect=="openai-chat"
         # A chat server answers {"data": [...]} or a bare array (Together); anything

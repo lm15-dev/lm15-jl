@@ -9,6 +9,7 @@ using Logging: Logging
 using OrderedCollections: OrderedDict
 import JSON as JSONBackend
 using HTTP: HTTP
+import CodecZlib
 using OpenSSL_jll: OpenSSL_jll
 
 pkgversion_string() = string(something(pkgversion(@__MODULE__), v"0.0.0"))
@@ -29,6 +30,7 @@ include("requests.jl")
 include("responses.jl")
 include("stream.jl")
 include("typesafe.jl")
+include("scoring.jl")
 include("router.jl")
 include("surfaces.jl")
 include("jobs.jl")
@@ -253,6 +255,7 @@ export Part,
     WireRequest,
     AbstractTransport,
     HTTPTransport,
+    Timeouts,
     open_response,
     file_upload,
     file_get,
@@ -364,6 +367,95 @@ export Part,
     decode_live_frame,
     token_exchange_build,
     token_exchange_parse,
-    sigv4_sign
+    sigv4_sign,
+    # 2026-09 catch-up: judgments and data parts (MAP-14)
+    DataPart,
+    data,
+    Judgment,
+    judgments,
+    choice,
+    yes_no,
+    score,
+    judgments_in_schema,
+    request_judgments,
+    expected_level,
+    TypeSafeLM,
+    data_part,
+    probabilities,
+    apply_client_side_stop,
+    # errors
+    AuthOperationError,
+    CollectionLimitError,
+    MissingCredentialError,
+    LoginCancelled,
+    # cloud identity (AUTH-1 named credentials and provenance)
+    CredentialSource,
+    credential_origin,
+    looks_like_access_token,
+    with_auth,
+    # managed authentication (AUTH-12-26)
+    Auth,
+    local_auth,
+    memory_auth,
+    Store,
+    FileStore,
+    MemoryStore,
+    default_store_path,
+    login_providers,
+    login_methods,
+    connections,
+    status,
+    cancel_login,
+    set_api_key,
+    configure,
+    logout,
+    verify,
+    request_auth,
+    credential_provider,
+    RequestAuth,
+    ForgetResult,
+    Connection,
+    ConnectionStatus,
+    Verification,
+    ProviderDescriptor,
+    LoginMethod,
+    MethodField,
+    SelectOption,
+    AuthUI,
+    FunctionUI,
+    TerminalUI,
+    Prompt,
+    TextPrompt,
+    SecretPrompt,
+    SelectPrompt,
+    ManualCodePrompt,
+    Notice,
+    AuthUrlNotice,
+    DeviceCodeNotice,
+    ProgressNotice,
+    InfoNotice,
+    ModelChoice,
+    ModelSelection,
+    model_choices,
+    BoundClient,
+    routed,
+    is_ready
+
+"""
+    LM15.Interactive
+
+The explicitly interactive helpers (AUTH-16, AUTH-23): `connect()` asks a person at a
+terminal to choose or make a connection and a model. Import it where a person is present;
+a server should attach an `Auth` with saved connections to its router instead.
+
+    using LM15, LM15.Interactive
+    connect() do lm
+        println(text(complete(lm, "Explain drought stress.")))
+    end
+"""
+module Interactive
+import ..LM15: connect, TerminalUI
+export connect, TerminalUI
+end
 
 end

@@ -280,7 +280,7 @@ function send!(s::LiveSession, e::LiveClientEvent)
         s.closed && throw(ArgumentError("live session is closed"))
         for frame in frames
             try
-                HTTP.WebSockets.send(s.socket, JSON.serialize(frame))
+                HTTP.WebSockets.send(s.socket, wire_json(frame))
             catch error
                 error isa InterruptException && rethrow()
                 throw(TransportError("live send failed"; provider=s.lm.provider))
@@ -371,7 +371,7 @@ function live(f, l::ProviderLM, c::LiveConfig)
             session=LiveSession(ws, l, c)
             try
                 for frame in frames
-                    HTTP.WebSockets.send(ws, JSON.serialize(frame))
+                    HTTP.WebSockets.send(ws, wire_json(frame))
                 end
                 if l.dialect=="gemini"
                     while true
@@ -470,31 +470,92 @@ function materialize_turn(events)
         events=Tuple(events),
     )
 end
+# Bounded turn collection (changes/2026-09-15-live-collection-limits.md): each view
+# retains at most max_bytes of accepted events (their compact ASCII canonical JSON)
+# and max_events events; past either it fails with CollectionLimitError, keeping
+# what it accepted, and stays sealed. The session stays open under the caller's control.
+const DEFAULT_TURN_MAX_BYTES = 16 * 1024 * 1024
+const DEFAULT_TURN_MAX_EVENTS = 10_000
+ascii_json_size(x::Nothing) = 4
+ascii_json_size(x::Bool) = x ? 4 : 5
+ascii_json_size(x::Integer) = ncodeunits(string(x))
+ascii_json_size(x::AbstractFloat) = ncodeunits(JSON.serialize(x))
+function ascii_json_size(s::AbstractString)
+    n = 2
+    for c in s
+        if c == '"' || c == '\\' || c in ('\b', '\f', '\n', '\r', '\t')
+            n += 2
+        elseif ' ' <= c <= '~'
+            n += 1
+        else
+            n += isvalid(c) && codepoint(c) > 0xffff ? 12 : 6
+        end
+    end
+    return n
+end
+ascii_json_size(d::AbstractDict) = 2 + max(length(d) - 1, 0) + sum((ascii_json_size(String(k)) + 1 + ascii_json_size(v) for (k, v) in d); init=0)
+ascii_json_size(v::Union{AbstractVector,Tuple}) = 2 + max(length(v) - 1, 0) + sum((ascii_json_size(x) for x in v); init=0)
+"""The byte charge of one live server event: its canonical JSON, compact, ASCII-escaped."""
+live_event_size(e::LiveServerEvent) = ascii_json_size(to_dict(e))
+function check_budget(name, value)
+    value isa Integer && !(value isa Bool) && value > 0 ||
+        throw(ArgumentError("$name must be a positive integer"))
+    return Int(value)
+end
 mutable struct TurnView{S}
     session::S
     events::Vector{LiveServerEvent}
     closed::Bool
     terminal::Bool
+    max_bytes::Int
+    max_events::Int
+    retained_bytes::Int
+    failure::Union{Nothing,CollectionLimitError}
 end
-turn(s::LiveSession) = TurnView(s, LiveServerEvent[], false, false)
+"""
+    turn(session; max_bytes=16 MiB, max_events=10_000) -> TurnView
+
+A view over the next turn: iterate its events, `snapshot` it, or `result` it. The view
+retains every event it yields, within its budgets; past one it throws
+`CollectionLimitError` (which keeps the accepted events and, for a byte overflow, the
+event that did not fit). Raw `recv(session)` collects nothing.
+"""
+turn(s::LiveSession; kw...) = turn_view(s; kw...)
+# Any source with a `recv` method (the live session; a scripted session in tests).
+turn_view(s; max_bytes=DEFAULT_TURN_MAX_BYTES, max_events=DEFAULT_TURN_MAX_EVENTS) =
+    TurnView(s, LiveServerEvent[], false, false, check_budget("max_bytes", max_bytes),
+        check_budget("max_events", max_events), 0, nothing)
 Base.IteratorSize(::Type{<:TurnView}) = Base.SizeUnknown()
 Base.eltype(::Type{<:TurnView}) = LiveServerEvent
-function Base.iterate(view::TurnView, state=nothing)
-    view.closed ||
-        view.terminal ||
-        begin
-            event=recv(view.session)
-            push!(view.events, event)
-            event isa
-            Union{LiveServerTurnEndEvent,LiveServerInterruptedEvent,LiveServerErrorEvent} &&
-                (view.terminal=true)
-            return event, nothing
-        end
-    return nothing
+function limit_failure(view::TurnView, limit, maximum, rejected=nothing)
+    what = limit == "max_bytes" ? "$(maximum) bytes" : "$(maximum) events"
+    view.failure = CollectionLimitError(ErrorMetadata(;
+        message="Live turn collection reached its configured budget ($limit = $what); the session is still open",
+        limit, maximum, retained_bytes=view.retained_bytes, partial_events=Tuple(view.events), rejected_event=rejected))
+    return view.failure
 end
-snapshot(view::TurnView) = materialize_turn(view.events)
+function Base.iterate(view::TurnView, state=nothing)
+    view.failure === nothing || throw(view.failure)
+    (view.closed || view.terminal) && return nothing
+    # A cap is a cap: at the event limit, nothing more is read.
+    length(view.events) >= view.max_events && throw(limit_failure(view, "max_events", view.max_events))
+    event=recv(view.session)
+    size=live_event_size(event)
+    size > view.max_bytes - view.retained_bytes && throw(limit_failure(view, "max_bytes", view.max_bytes, event))
+    push!(view.events, event)
+    view.retained_bytes += size
+    event isa Union{LiveServerTurnEndEvent,LiveServerInterruptedEvent,LiveServerErrorEvent} &&
+        (view.terminal=true)
+    return event, nothing
+end
+function snapshot(view::TurnView)
+    view.failure === nothing && return materialize_turn(view.events)
+    t=materialize_turn(view.events)
+    return Turn(; (n=>getfield(t, n) for n in fieldnames(Turn))..., ended_by="incomplete")
+end
 Base.close(view::TurnView) = (view.closed=true; nothing)
 function result(view::TurnView)
+    view.failure === nothing || throw(view.failure)
     if !isempty(view.events) && last(view.events) isa LiveServerToolCallEvent
         return snapshot(view)
     end

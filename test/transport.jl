@@ -121,8 +121,14 @@ end
         end
         @test thrown === failure
     end
-    @test_throws ArgumentError HTTPTransport(read_timeout=0.5)
+    # HTTP.jl counts whole seconds: a fraction is rounded up, never shortened.
+    @test HTTPTransport(read_timeout=0.5).read_timeout == 1
     @test_throws ArgumentError HTTPTransport(connect_timeout=true)
+    @test_throws ArgumentError HTTPTransport(read_timeout=0)
+    @test_throws ArgumentError HTTPTransport(max_connections=0)
+    budget = HTTPTransport().timeouts
+    @test (budget.connect, budget.read, budget.write, budget.pool) == (10.0, 600.0, 600.0, 600.0)
+    @test HTTPTransport().max_connections == 100
 
     # This cloud door uses a query key. A refused local connection must not
     # expose the underlying ConnectError URL through Julia's exception stack.

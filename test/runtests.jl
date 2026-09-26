@@ -8,6 +8,11 @@ using LM15
 using LM15: JSON
 
 const SENTINEL = "SECRET-SENTINEL-DO-NOT-PRINT"
+# The contract checkout next to this package when present (development), else the
+# copies under conformance/ (an installed package), refreshed when the pin moves.
+const CONTRACT = let root = get(ENV, "LM15_CONTRACT_DIR", joinpath(@__DIR__, "..", "..", "lm15-contract"))
+    isdir(root) ? root : joinpath(@__DIR__, "..", "conformance")
+end
 
 function fake_codex_jwt(account_id, exp_seconds)
     encode(value) =
@@ -42,6 +47,8 @@ include("streams.jl")
 include("transport.jl")
 include("auth_storage.jl")
 include("auth_environment.jl")
+include("live_limits.jl")
+include("judgments.jl")
 
 @testset "aliases and errors" begin
     @test explain_auth("openai_chat"; env=Dict{String,String}()).provider == "openai-chat"
@@ -153,9 +160,7 @@ function materialize_borrowed_file(provider, state, sentinel)
 end
 
 @testset "auth resolution contract" begin
-    contract_root = get(ENV, "LM15_CONTRACT_DIR", joinpath(@__DIR__, "..", "..", "lm15-contract"))
-    corpus = joinpath(contract_root, "auth", "resolution.json")
-    isfile(corpus) || (corpus = joinpath(@__DIR__, "..", "conformance", "auth_resolution.json"))
+    corpus = joinpath(CONTRACT, "auth", "resolution.json")
     fixture = JSON.parse(read(corpus, String))
     sentinel = fixture["sentinel"]
     cases = fixture["cases"]
