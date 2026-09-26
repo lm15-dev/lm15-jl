@@ -69,8 +69,12 @@ jobs:
           git -C ../lm15-contract checkout --detach "$PIN"
       - name: Instantiate and precompile
         run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Allow unprivileged user namespaces, so the harness can cut the shim's network
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Harness
-        run: python3 ../lm15-contract/harness/check.py --shim julia --direction all
+        run: |
+          python3 ../lm15-contract/harness/check.py --shim julia --direction all
+          grep -q '"sandboxed": true' ../lm15-contract/harness/reports/request.json
 
   downgrade:
     # The lowest versions [compat] allows, so the lower bounds are tested, not guessed.
@@ -83,7 +87,9 @@ jobs:
           version: '1.10'
       - uses: julia-actions/julia-downgrade-compat@v1
         with:
-          skip: Base64,Dates,Logging,Random,SHA,Test
+          # Test tooling is not a runtime dependency; Aqua 0.8.0 has a persistent-task
+          # check that fails on packages with extensions (fixed in later 0.8 releases).
+          skip: Base64,Dates,Logging,Random,SHA,Test,Aqua
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 

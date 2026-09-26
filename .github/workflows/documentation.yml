@@ -34,6 +34,8 @@ jobs:
           using Pkg
           Pkg.develop(path=".")
           Pkg.instantiate()
+      - name: Allow unprivileged user namespaces (Ubuntu 24.04 runners restrict them)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Build in a network namespace (no live provider access)
         run: bash docs/build.sh
       - uses: actions/upload-artifact@v4
